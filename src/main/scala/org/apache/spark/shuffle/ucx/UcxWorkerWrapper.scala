@@ -91,6 +91,8 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
         // Header contains tag followed by sizes of blocks
         val numBlocks = (headerSize.toInt - UnsafeUtils.INT_SIZE) / UnsafeUtils.INT_SIZE
 
+	logDebug("Hello World!");
+
         var offset = 0
         val refCounts = new AtomicInteger(numBlocks)
         if (ucpAmData.isDataValid) {
