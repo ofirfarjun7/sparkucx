@@ -113,10 +113,8 @@ trait ShuffleTransport {
   /**
    * Initialize transport resources. This function should get called after ensuring that SparkConf
    * has the correct configurations since it will use the spark configuration to configure itself.
-   *
-   * @return worker address of current process, to use in [[ addExecutor()]]
    */
-  def init(): ByteBuffer
+  def init(): Unit
 
   /**
    * Close all transport resources
