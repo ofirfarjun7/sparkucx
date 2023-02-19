@@ -98,6 +98,11 @@ See file LICENSE for terms.
       <artifactId>jucx</artifactId>
       <version>1.13.1</version>
     </dependency>
+    <dependency>
+      <groupId>org.ini4j</groupId>
+      <artifactId>ini4j</artifactId>
+      <version>0.5.4</version>
+  </dependency>
   </dependencies>
 
   <build>
