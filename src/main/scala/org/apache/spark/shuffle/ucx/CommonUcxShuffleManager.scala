@@ -4,6 +4,8 @@
 */
 package org.apache.spark.shuffle.ucx
 
+import java.net.InetSocketAddress
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Success
 
@@ -11,7 +13,7 @@ import org.apache.spark.rpc.RpcEnv
 import org.apache.spark.shuffle.sort.SortShuffleManager
 import org.apache.spark.shuffle.ucx.rpc.{UcxDriverRpcEndpoint, UcxExecutorRpcEndpoint}
 import org.apache.spark.shuffle.ucx.rpc.UcxRpcMessages.{ExecutorAdded, IntroduceAllExecutors}
-import org.apache.spark.shuffle.ucx.utils.SerializableDirectBuffer
+import org.apache.spark.shuffle.ucx.utils.{SerializableDirectBuffer, SerializationUtils, DpuUtils}
 import org.apache.spark.util.{RpcUtils, ThreadUtils}
 import org.apache.spark.{SecurityManager, SparkConf, SparkEnv}
 
@@ -59,8 +61,14 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
   def startUcxTransport(): Unit = if (ucxTransport == null) {
     val blockManager = SparkEnv.get.blockManager.blockManagerId
     val transport = new UcxShuffleTransport(ucxShuffleConf, blockManager.executorId.toLong)
-    val address = transport.init()
+    // Change address here
+    // var address = SerializationUtils.deserializeInetAddress()
+    transport.init()
+    // Change logging level in settings!
+    var address = new InetSocketAddress(DpuUtils.getLocalDpuAddress, 1338)
     ucxTransport = transport
+    logInfo(s"LEO startUcxTransport sending executor address $address")
+    // logInfo("LEO2 startUcxTransport")
     val rpcEnv = RpcEnv.create("ucx-rpc-env", blockManager.host, blockManager.port,
       conf, new SecurityManager(conf), clientMode = false)
     executorEndpoint = new UcxExecutorRpcEndpoint(rpcEnv, ucxTransport, setupThread)
@@ -69,7 +77,7 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
       executorEndpoint)
     val driverEndpoint = RpcUtils.makeDriverRef(driverRpcName, conf, rpcEnv)
     driverEndpoint.ask[IntroduceAllExecutors](ExecutorAdded(blockManager.executorId.toLong, endpoint,
-      new SerializableDirectBuffer(address)))
+      new SerializableDirectBuffer(SerializationUtils.serializeInetAddress(address))))
       .andThen {
         case Success(msg) =>
           logInfo(s"Receive reply $msg")
