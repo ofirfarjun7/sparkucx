@@ -52,7 +52,7 @@ class UcxStats extends OperationStats {
   override def recvSize: Long = receiveSize
 }
 
-case class UcxShuffleBockId(shuffleId: Int, mapId: Int, reduceId: Int) extends BlockId {
+case class UcxShuffleBlockId(shuffleId: Int, mapId: Int, reduceId: Int) extends BlockId {
   override def serializedSize: Int = 12
 
   override def serialize(byteBuffer: ByteBuffer): Unit = {
@@ -62,12 +62,12 @@ case class UcxShuffleBockId(shuffleId: Int, mapId: Int, reduceId: Int) extends B
   }
 }
 
-object UcxShuffleBockId {
-  def deserialize(byteBuffer: ByteBuffer): UcxShuffleBockId = {
+object UcxShuffleBlockId {
+  def deserialize(byteBuffer: ByteBuffer): UcxShuffleBlockId = {
     val shuffleId = byteBuffer.getInt
     val mapId = byteBuffer.getInt
     val reduceId = byteBuffer.getInt
-    UcxShuffleBockId(shuffleId, mapId, reduceId)
+    UcxShuffleBlockId(shuffleId, mapId, reduceId)
   }
 }
 
@@ -233,7 +233,7 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
 
   def unregisterShuffle(shuffleId: Int): Unit = {
     registeredBlocks.keysIterator.foreach(bid =>
-      if (bid.asInstanceOf[UcxShuffleBockId].shuffleId == shuffleId) {
+      if (bid.asInstanceOf[UcxShuffleBlockId].shuffleId == shuffleId) {
         registeredBlocks.remove(bid)
       }
     )
