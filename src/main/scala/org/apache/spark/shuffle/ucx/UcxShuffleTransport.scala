@@ -53,10 +53,10 @@ class UcxStats extends OperationStats {
 }
 
 case class UcxShuffleBlockId(shuffleId: Int, mapId: Int, reduceId: Int) extends BlockId {
-  override def serializedSize: Int = 12
+  override def serializedSize: Int = 8
 
   override def serialize(byteBuffer: ByteBuffer): Unit = {
-    byteBuffer.putInt(shuffleId)
+    //byteBuffer.putInt(shuffleId)
     byteBuffer.putInt(mapId)
     byteBuffer.putInt(reduceId)
   }
@@ -64,10 +64,10 @@ case class UcxShuffleBlockId(shuffleId: Int, mapId: Int, reduceId: Int) extends 
 
 object UcxShuffleBlockId {
   def deserialize(byteBuffer: ByteBuffer): UcxShuffleBlockId = {
-    val shuffleId = byteBuffer.getInt
+    //val shuffleId = byteBuffer.getInt
     val mapId = byteBuffer.getInt
     val reduceId = byteBuffer.getInt
-    UcxShuffleBlockId(shuffleId, mapId, reduceId)
+    UcxShuffleBlockId(0, mapId, reduceId)
   }
 }
 
@@ -100,6 +100,7 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
   }
 
   override def init(): Unit = {
+    logDebug("LEO init UcxShuffleTransport")
     if (ucxShuffleConf == null) {
       ucxShuffleConf = new UcxShuffleConf(SparkEnv.get.conf)
     }
@@ -137,6 +138,7 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
     }
 
     initialized = true
+    logDebug("LEO init UcxShuffleTransport done")
   }
 
   /**
