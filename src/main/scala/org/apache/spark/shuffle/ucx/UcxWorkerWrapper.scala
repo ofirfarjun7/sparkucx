@@ -15,14 +15,13 @@ import org.openucx.jucx.ucs.UcsConstants.MEMORY_TYPE
 import org.openucx.jucx.{UcxCallback, UcxException, UcxUtils}
 import org.apache.spark.internal.Logging
 import org.apache.spark.shuffle.ucx.memory.UcxBounceBufferMemoryBlock
-import org.apache.spark.shuffle.ucx.utils.SerializationUtils
+import org.apache.spark.shuffle.ucx.utils.{SerializationUtils, UcpSparkAmId}
 import org.apache.spark.shuffle.utils.UnsafeUtils
 import org.apache.spark.unsafe.Platform
 import org.apache.spark.util.ThreadUtils
 
 import java.nio.ByteBuffer
 import scala.collection.parallel.ForkJoinTaskSupport
-
 
 class UcxFailureOperationResult(errorMsg: String) extends OperationResult {
   override def getStatus: OperationStatus.Value = OperationStatus.FAILURE
@@ -219,15 +218,17 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
       header.rewind()
       val workerAddress = worker.getAddress
 
-      ep.sendAmNonBlocking(1, UcxUtils.getAddress(header), UnsafeUtils.LONG_SIZE,
-        UcxUtils.getAddress(workerAddress), workerAddress.capacity().toLong, UcpConstants.UCP_AM_SEND_FLAG_EAGER,
-        new UcxCallback() {
-          override def onSuccess(request: UcpRequest): Unit = {
-            header.clear()
-            workerAddress.clear()
-          }
-        }, MEMORY_TYPE.UCS_MEMORY_TYPE_HOST)
-      flushRequests.add(ep.flushNonBlocking(null))
+      // No need to send anything here
+      // ep.sendAmNonBlocking(0, UcxUtils.getAddress(header), UnsafeUtils.LONG_SIZE,
+      //   UcxUtils.getAddress(workerAddress), workerAddress.capacity().toLong, UcpConstants.UCP_AM_SEND_FLAG_EAGER,
+      //   new UcxCallback() {
+      //     override def onSuccess(request: UcpRequest): Unit = {
+      //       logDebug("LEO sent AM header and worker address")
+      //       header.clear()
+      //       workerAddress.clear()
+      //     }
+      //   }, MEMORY_TYPE.UCS_MEMORY_TYPE_HOST)
+      // flushRequests.add(ep.flushNonBlocking(null))
       ep
     })
   }
@@ -244,30 +245,31 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
                           resultBufferAllocator: transport.BufferAllocator,
                           callback: OperationCallback): Request = {
     val startTime = System.nanoTime()
-    val headerSize = UnsafeUtils.INT_SIZE + UnsafeUtils.LONG_SIZE
+    val headerSize = blockId.serializedSize + UnsafeUtils.LONG_SIZE
     val ep = getConnection(executorId)
     val t = tag.incrementAndGet()
+    val length = 1
 
-    val buffer = Platform.allocateDirectBuffer(headerSize + blockId.serializedSize)
-    buffer.putInt(t)
-    buffer.putLong(id)
+    val buffer = Platform.allocateDirectBuffer(headerSize)
+    // buffer.putL
     blockId.serialize(buffer)
+    // buffer.putLong(id)
+    buffer.putLong(length)
 
     val request = new UcxRequest(null, new UcxStats())
     requestData.put(t, (Seq(callback), request, resultBufferAllocator))
 
     buffer.rewind()
     val address = UnsafeUtils.getAdress(buffer)
-    val dataAddress = address + headerSize
+    //val dataAddress = address + headerSize
 
     logDebug(s"Sending message to fetch block ${blockId.asInstanceOf[BlockId]}")
-
-    ep.sendAmNonBlocking(0, address,
-      headerSize, dataAddress, buffer.capacity() - headerSize,
-      UcpConstants.UCP_AM_SEND_FLAG_EAGER, new UcxCallback() {
+//dataAddress, buffer.capacity() - headerSize
+    ep.sendAmNonBlocking(UcpSparkAmId.FetchReq, 0, 0, address, headerSize,
+      UcpConstants.UCP_AM_SEND_FLAG_EAGER | UcpConstants.UCP_AM_SEND_FLAG_REPLY, new UcxCallback() {
        override def onSuccess(request: UcpRequest): Unit = {
          buffer.clear()
-         logDebug(s"Sent message on $ep to $executorId to fetch block on tag $t id $id " +
+         logDebug(s"Sent message on $ep to $executorId to fetch block on tag $t id $id length $length" +
            s"in ${System.nanoTime() - startTime}ns")
        }
      }, MEMORY_TYPE.UCS_MEMORY_TYPE_HOST)
@@ -308,7 +310,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
     }
 
     val startTime = System.nanoTime()
-    val req = getConnection(replyExecutor).sendAmNonBlocking(1, resultMemory.address, tagAndSizes,
+    val req = getConnection(replyExecutor).sendAmNonBlocking(0 , resultMemory.address, tagAndSizes,
       resultMemory.address + tagAndSizes, resultMemory.size - tagAndSizes, 0, new UcxCallback {
         override def onSuccess(request: UcpRequest): Unit = {
           logTrace(s"Sent ${blocks.length} blocks of size: ${resultMemory.size} " +
