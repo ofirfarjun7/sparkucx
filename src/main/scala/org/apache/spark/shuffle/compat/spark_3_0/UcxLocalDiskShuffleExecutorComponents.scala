@@ -22,14 +22,18 @@ class UcxLocalDiskShuffleExecutorComponents(sparkConf: SparkConf)
   private var blockResolver: UcxShuffleBlockResolver = _
 
   override def initializeExecutor(appId: String, execId: String, extraConfigs: util.Map[String, String]): Unit = {
+    logDebug("LEO UcxLocalDiskShuffleExecutorComponents initializeExecutor appId: " + appId + " execId: " + execId)
     val ucxShuffleManager = SparkEnv.get.shuffleManager.asInstanceOf[UcxShuffleManager]
     while (ucxShuffleManager.ucxTransport == null) {
       Thread.sleep(5)
     }
+
     blockResolver = ucxShuffleManager.shuffleBlockResolver
   }
 
   override def createMapOutputWriter(shuffleId: Int, mapTaskId: Long, numPartitions: Int): ShuffleMapOutputWriter = {
+    // Not used
+    logDebug("LEO UcxLocalDiskShuffleExecutorComponents createMapOutputWriter shuffleId: " + shuffleId + " mapTaskId: " + mapTaskId + " numPartitions: " + numPartitions)
     if (blockResolver == null) {
       throw new IllegalStateException(
         "Executor components must be initialized before getting writers.")
@@ -39,10 +43,14 @@ class UcxLocalDiskShuffleExecutorComponents(sparkConf: SparkConf)
   }
 
   override def createSingleFileMapOutputWriter(shuffleId: Int, mapId: Long): Optional[SingleSpillShuffleMapOutputWriter] = {
+    // Called per each mapper
+    logDebug("LEO UcxLocalDiskShuffleExecutorComponents createSingleFileMapOutputWriter shuffleId: " + shuffleId + " mapId: " + mapId)
     if (blockResolver == null) {
       throw new IllegalStateException(
         "Executor components must be initialized before getting writers.")
     }
+
+    // Need to implement an alternative to LocalDiskSingleSpillMapOutputWriter?
     Optional.of(new LocalDiskSingleSpillMapOutputWriter(shuffleId, mapId, blockResolver))
   }
 

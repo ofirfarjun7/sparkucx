@@ -31,6 +31,7 @@ abstract class CommonUcxShuffleBlockResolver(ucxShuffleManager: CommonUcxShuffle
    * Mapper commit protocol extension. Register index and data files and publish all needed
    * metadata to driver.
    */
+  // This is the entry point to send the "init to local DPU" message
   def writeIndexFileAndCommitCommon(shuffleId: ShuffleId, mapId: Int,
                                     lengths: Array[Long], dataBackFile: RandomAccessFile): Unit = {
     openFds.computeIfAbsent(shuffleId, (_: ShuffleId) => new ConcurrentLinkedQueue[RandomAccessFile]())
