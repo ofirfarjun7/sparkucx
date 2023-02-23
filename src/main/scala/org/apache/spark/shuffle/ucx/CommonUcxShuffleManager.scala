@@ -36,6 +36,8 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
 
   private val setupThread = ThreadUtils.newDaemonSingleThreadExecutor("UcxTransportSetupThread")
 
+  logDebug("LEO CommonUcxShuffleManager")
+
   setupThread.submit(new Runnable {
     override def run(): Unit = {
       while (SparkEnv.get == null) {
@@ -65,7 +67,9 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
     // var address = SerializationUtils.deserializeInetAddress()
     transport.init()
     // Change logging level in settings!
+    logDebug(s"LEO startUcxTransport transport: $transport")
     var address = new InetSocketAddress(DpuUtils.getLocalDpuAddress, 1338)
+    logDebug(s"LEO startUcxTransport address: $address")
     ucxTransport = transport
     logInfo(s"LEO startUcxTransport sending executor address $address")
     // logInfo("LEO2 startUcxTransport")
