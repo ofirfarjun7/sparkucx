@@ -7,9 +7,9 @@ package org.apache.spark.shuffle
 import scala.collection.JavaConverters._
 
 import org.apache.spark.shuffle.api.ShuffleExecutorComponents
-import org.apache.spark.shuffle.compat.spark_3_0.{UcxLocalDiskShuffleExecutorComponents, UcxShuffleBlockResolver, UcxShuffleReader}
+import org.apache.spark.shuffle.compat.spark_3_0.{UcxShuffleBlockResolver, UcxShuffleReader}
 import org.apache.spark.shuffle.sort.{SerializedShuffleHandle, SortShuffleWriter, UnsafeShuffleWriter}
-import org.apache.spark.shuffle.ucx.CommonUcxShuffleManager
+import org.apache.spark.shuffle.ucx.{CommonUcxShuffleManager, DpuShuffleExecutorComponents}
 import org.apache.spark.{SparkConf, SparkEnv, TaskContext}
 
 /**
@@ -55,7 +55,7 @@ class UcxShuffleManager(override val conf: SparkConf, isDriver: Boolean)
 
   private def loadShuffleExecutorComponents(conf: SparkConf): ShuffleExecutorComponents = {
     logDebug("LEO UcxShuffleManager loadShuffleExecutorComponents")
-    val executorComponents = new UcxLocalDiskShuffleExecutorComponents(conf)
+    val executorComponents = new DpuShuffleExecutorComponents(conf)
     val extraConfigs = conf.getAllWithPrefix(ShuffleDataIOUtils.SHUFFLE_SPARK_CONF_PREFIX)
       .toMap
     executorComponents.initializeExecutor(

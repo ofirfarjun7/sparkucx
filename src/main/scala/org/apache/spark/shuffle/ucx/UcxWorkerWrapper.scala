@@ -263,7 +263,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
     val address = UnsafeUtils.getAdress(buffer)
     //val dataAddress = address + headerSize
 
-    logDebug(s"Sending message to fetch block ${blockId.asInstanceOf[BlockId]}")
+    logDebug(s"Sending message to fetch block ${blockId.asInstanceOf[BlockId]} buffer: $buffer")
 //dataAddress, buffer.capacity() - headerSize
     ep.sendAmNonBlocking(UcpSparkAmId.FetchReq, 0, 0, address, headerSize,
       UcpConstants.UCP_AM_SEND_FLAG_EAGER | UcpConstants.UCP_AM_SEND_FLAG_REPLY, new UcxCallback() {
