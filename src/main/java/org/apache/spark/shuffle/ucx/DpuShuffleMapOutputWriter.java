@@ -27,6 +27,7 @@ package org.apache.spark.shuffle.ucx;
 
 //  package org.apache.spark.shuffle.sort.io;
 import org.apache.spark.internal.Logging;
+import org.apache.log4j.Logger;
 
  import java.io.BufferedOutputStream;
  import java.io.File;
@@ -54,6 +55,7 @@ import org.apache.spark.internal.Logging;
   * canonical shuffle storage mechanism.
   */
 public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
+  private static final Logger log = Logger.getLogger("LEO");
  
   //  private static final Logger log =
   //    LoggerFactory.getLogger(LocalDiskShuffleMapOutputWriter.class);
@@ -79,6 +81,7 @@ public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
        int numPartitions,
        IndexShuffleBlockResolver blockResolver,
        SparkConf sparkConf) {
+    log.info("DpuShuffleMapOutputWriter ctor shuffleId " + shuffleId + " mapId " + mapId + " numPartitions " + numPartitions);
      this.shuffleId = shuffleId;
      this.mapId = mapId;
      this.blockResolver = blockResolver;
@@ -96,6 +99,7 @@ public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
  
    @Override
    public ShufflePartitionWriter getPartitionWriter(int reducePartitionId) throws IOException {
+    log.info("DpuShuffleMapOutputWriter getPartitionWriter " + reducePartitionId);
      if (reducePartitionId <= lastPartitionId) {
        throw new IllegalArgumentException("Partitions should be requested in increasing order.");
      }
@@ -113,6 +117,7 @@ public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
  
    @Override
    public long[] commitAllPartitions() throws IOException {
+    log.info("DpuShuffleMapOutputWriter commitAllPartitions");
      // Check the position after transferTo loop to see if it is in the right position and raise a
      // exception if it is incorrect. The position will not be increased to the expected length
      // after calling transferTo in kernel version 2.6.32. This issue is described at
@@ -127,8 +132,7 @@ public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
      }
      cleanUp();
      File resolvedTmp = outputTempFile != null && outputTempFile.isFile() ? outputTempFile : null;
-    //  logDebug("Writing shuffle index file for mapId {} with length {}", mapId,
-    //      partitionLengths.length);
+      log.info("Writing shuffle index file for mapId " + mapId + " with length" + partitionLengths.length);
      blockResolver.writeIndexFileAndCommit(shuffleId, mapId, partitionLengths, resolvedTmp);
      return partitionLengths;
    }
@@ -142,6 +146,7 @@ public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
    }
  
    private void cleanUp() throws IOException {
+    log.info("DpuShuffleMapOutputWriter cleanUp");
      if (outputBufferedFileStream != null) {
        outputBufferedFileStream.close();
      }
@@ -154,6 +159,7 @@ public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
    }
  
    private void initStream() throws IOException {
+    log.info("DpuShuffleMapOutputWriter initStream");
      if (outputFileStream == null) {
        outputFileStream = new FileOutputStream(outputTempFile, true);
      }
@@ -163,6 +169,7 @@ public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
    }
  
    private void initChannel() throws IOException {
+    log.info("DpuShuffleMapOutputWriter initChannel");
      // This file needs to opened in append mode in order to work around a Linux kernel bug that
      // affects transferTo; see SPARK-3948 for more details.
      if (outputFileChannel == null) {
@@ -177,11 +184,13 @@ public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
      private PartitionWriterChannel partChannel = null;
  
      private LocalDiskShufflePartitionWriter(int partitionId) {
+      log.info("LocalDiskShufflePartitionWriter ctor " + partitionId);
        this.partitionId = partitionId;
      }
  
      @Override
      public OutputStream openStream() throws IOException {
+      log.info("LocalDiskShufflePartitionWriter openStream " + partitionId);
        if (partStream == null) {
          if (outputFileChannel != null) {
            throw new IllegalStateException("Requested an output channel for a previous write but" +
@@ -196,6 +205,7 @@ public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
  
      @Override
      public Optional<WritableByteChannelWrapper> openChannelWrapper() throws IOException {
+      log.info("LocalDiskShufflePartitionWriter openChannelWrapper " + partitionId);
        if (partChannel == null) {
          if (partStream != null) {
            throw new IllegalStateException("Requested an output stream for a previous write but" +
@@ -210,6 +220,7 @@ public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
  
      @Override
      public long getNumBytesWritten() {
+      log.info("LocalDiskShufflePartitionWriter getNumBytesWritten " + partitionId);
        if (partChannel != null) {
          try {
            return partChannel.getCount();
@@ -231,6 +242,7 @@ public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
      private boolean isClosed = false;
  
      PartitionWriterStream(int partitionId) {
+      log.info("PartitionWriterStream ctor " + partitionId);
        this.partitionId = partitionId;
      }
  
@@ -240,6 +252,7 @@ public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
  
      @Override
      public void write(int b) throws IOException {
+      log.info("PartitionWriterStream write1 " + b);
        verifyNotClosed();
        outputBufferedFileStream.write(b);
        count++;
@@ -247,6 +260,7 @@ public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
  
      @Override
      public void write(byte[] buf, int pos, int length) throws IOException {
+        log.info("PartitionWriterStream write2 " + buf + " " + pos + " " + length);
        verifyNotClosed();
        outputBufferedFileStream.write(buf, pos, length);
        count += length;
@@ -271,16 +285,19 @@ public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
      private final int partitionId;
  
      PartitionWriterChannel(int partitionId) {
+      log.info("PartitionWriterChannel ctor " + partitionId);
        this.partitionId = partitionId;
      }
  
      public long getCount() throws IOException {
+      log.info("PartitionWriterChannel getCount " + partitionId);
        long writtenPosition = outputFileChannel.position();
        return writtenPosition - currChannelPosition;
      }
  
      @Override
      public WritableByteChannel channel() {
+      log.info("PartitionWriterChannel channel " + partitionId);
        return outputFileChannel;
      }
  
