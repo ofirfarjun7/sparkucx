@@ -8,7 +8,7 @@ import org.apache.spark.SparkEnv
 import org.apache.spark.internal.Logging
 import org.apache.spark.shuffle.ucx.memory.UcxHostBounceBuffersPool
 import org.apache.spark.shuffle.ucx.rpc.GlobalWorkerRpcThread
-import org.apache.spark.shuffle.ucx.utils.{SerializableDirectBuffer, SerializationUtils}
+import org.apache.spark.shuffle.ucx.utils.{SerializableDirectBuffer, SerializationUtils, DpuUtils}
 import org.apache.spark.shuffle.utils.UnsafeUtils
 import org.openucx.jucx.UcxException
 import org.openucx.jucx.ucp._
@@ -86,6 +86,7 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
   private val registeredBlocks = new TrieMap[BlockId, Block]
   private var progressThread: Thread = _
   var hostBounceBufferMemoryPool: UcxHostBounceBuffersPool = _
+  private var localDpuEp: UcpEndpoint = null
 
   private val errorHandler = new UcpEndpointErrorHandler {
     override def onError(ucpEndpoint: UcpEndpoint, errorCode: Int, errorString: String): Unit = {
@@ -97,6 +98,23 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
       endpoints.remove(ucpEndpoint)
       ucpEndpoint.close()
     }
+  }
+
+  def connectToLocalDpu(): Unit = {
+    val address = new InetSocketAddress(DpuUtils.getLocalDpuAddress, 1338)
+    logDebug(s"LEO Connecting to local DPU at $address")
+
+    val endpointParams = new UcpEndpointParams().setPeerErrorHandlingMode()
+        .setSocketAddress(address).sendClientId()
+        .setErrorHandler(new UcpEndpointErrorHandler() {
+          override def onError(ep: UcpEndpoint, status: Int, errorMsg: String): Unit = {
+            logError(s"Endpoint to local DPU $address got an error: $errorMsg")
+          }
+        }).setName(s"Endpoint to local DPU $address")
+
+    localDpuEp = globalWorker.newEndpoint(endpointParams)
+
+
   }
 
   override def init(): Unit = {
@@ -125,6 +143,7 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
     globalWorker = ucxContext.newWorker(ucpWorkerParams)
     hostBounceBufferMemoryPool = new UcxHostBounceBuffersPool(ucxShuffleConf, ucxContext)
 
+    connectToLocalDpu()
     // progressThread = new GlobalWorkerRpcThread(globalWorker, this)
     // progressThread.start()
 
