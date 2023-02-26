@@ -14,6 +14,7 @@ import org.apache.spark.shuffle.ucx.{CommonUcxShuffleBlockResolver, CommonUcxShu
  * of data and index files and publish addresses to driver metadata buffer.
  */
 class UcxShuffleBlockResolver(ucxShuffleManager: CommonUcxShuffleManager)
+  // TODO: Init UCX worker here; Is this a singleton?
   extends CommonUcxShuffleBlockResolver(ucxShuffleManager) {
 
 
