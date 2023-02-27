@@ -15,11 +15,7 @@ import org.apache.spark.shuffle.api.ShuffleExecutorComponents;
 
 class DpuShuffleIO(val conf: SparkConf) extends ShuffleDataIO with Logging {
     logDebug("LEO DpuShuffleIO constructor");
-    // logDebug("LEO DpuShuffleIO constructor");
 
-    // def driver() = {
-    //     new ShuffleDriverComponents();
-    // }
 
  private val sparkConf = conf;
 
@@ -29,28 +25,16 @@ class DpuShuffleIO(val conf: SparkConf) extends ShuffleDataIO with Logging {
 
 //   @Override
 override def executor() = {
+    throw new UnsupportedOperationException("Not implemented for DPU");
     logDebug("LEO DpuShuffleIO executor");
+    // TODO: Why this one is never called?
     new DpuShuffleExecutorComponents(sparkConf);
   }
 
 //   @Override
 override def driver() = {
     logDebug("LEO DpuShuffleIO driver");
+    // TODO: Need to rewrite this one?
     new LocalDiskShuffleDriverComponents();
   }
 }
-
-    // public DpuShuffleIO() {
-    //     logDebug("LEO DpuShuffleIO constructor");
-    // }
-
-    // public ShuffleExecutorComponents executor() {
-    //     logDebug("LEO DpuShuffleIO executor");
-    //     return new DpuShuffleExecutorComponents();
-    // }
-
-    // public ShuffleDriverComponents driver() {
-    //     logDebug("LEO DpuShuffleIO driver");
-    //     return new DpuShuffleDriverComponents();
-    // }
-

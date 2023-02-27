@@ -34,6 +34,8 @@ abstract class CommonUcxShuffleBlockResolver(ucxShuffleManager: CommonUcxShuffle
   // This is the entry point to send the "init to local DPU" message
   def writeIndexFileAndCommitCommon(shuffleId: ShuffleId, mapId: Int,
                                     lengths: Array[Long], dataBackFile: RandomAccessFile): Unit = {
+
+    logInfo(s"LEO writeIndexFileAndCommitCommon: shuffleId=$shuffleId, mapId=$mapId, lengths=$lengths, dataBackFile=$dataBackFile")
     openFds.computeIfAbsent(shuffleId, (_: ShuffleId) => new ConcurrentLinkedQueue[RandomAccessFile]())
     openFds.get(shuffleId).add(dataBackFile)
     var offset = 0L

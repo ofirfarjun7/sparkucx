@@ -190,6 +190,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
   }
 
   def getConnection(executorId: transport.ExecutorId): UcpEndpoint = {
+    // TODO: Skip connection if already connected to the DPU of this executor
 
     val startTime = System.currentTimeMillis()
     while (!transport.executorAddresses.contains(executorId)) {

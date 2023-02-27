@@ -19,31 +19,20 @@ import org.apache.spark.storage.BlockManager;
 // import org.apache.spark.shuffle.ucx.DpuShuffleMapOutputWriter;
 import org.apache.spark.shuffle.ucx;
 
+import org.openucx.nvkv.Nvkv;
+
 // temp
 import org.apache.spark.shuffle.sort.io.{LocalDiskShuffleMapOutputWriter, LocalDiskSingleSpillMapOutputWriter};
 
 class DpuShuffleExecutorComponents(val sparkConf: SparkConf) extends ShuffleExecutorComponents with Logging {
     logDebug("LEO DpuShuffleExecutorComponents constructor");
-//   private final SparkConf sparkConf;
-//   private var blockManager = null;
+    // Need to pass disk+nsid in Init
+    // Nvkv.init("mlx5_0", 1, "0x1");
+
   private var blockResolver: IndexShuffleBlockResolver = null;
-
-//   DpuShuffleExecutorComponents {
-//     this.sparkConf = sparkConf;
-//   }
-
-//   public DpuShuffleExecutorComponents(
-//       SparkConf sparkConf,
-//       BlockManager blockManager,
-//       IndexShuffleBlockResolver blockResolver) {
-//     this.sparkConf = sparkConf;
-//     this.blockManager = blockManager;
-//     this.blockResolver = blockResolver;
-//   }
 
   override def initializeExecutor(appId: String, execId: String, extraConfigs: Map[String, String]) = {
     logDebug("LEO DpuShuffleExecutorComponents initializeExecutor");
-    // String appId, String execId, Map<String, String> extraConfigs) = {
     val blockManager = SparkEnv.get.blockManager;
     if (blockManager == null) {
       throw new IllegalStateException("No blockManager available from the SparkEnv.");
@@ -52,7 +41,6 @@ class DpuShuffleExecutorComponents(val sparkConf: SparkConf) extends ShuffleExec
   }
 
   override def createMapOutputWriter(shuffleId: Int, mapTaskId: Long, numPartitions: Int) = {
-    // throw new UnsupportedOperationException("Not implemented for DPU");
     logDebug("LEO DpuShuffleExecutorComponents createMapOutputWriter");
     if (blockResolver == null) {
       throw new IllegalStateException(
@@ -63,12 +51,6 @@ class DpuShuffleExecutorComponents(val sparkConf: SparkConf) extends ShuffleExec
 
   override def createSingleFileMapOutputWriter(shuffleId: Int, mapId: Long) = {
     Optional.empty();
-    // None
-//     logDebug("LEO DpuShuffleExecutorComponents createSingleFileMapOutputWriter");
-//     if (blockResolver == null) {
-//       throw new IllegalStateException(
-//           "Executor components must be initialized before getting writers.");
-//     }
-//     Optional.of(new LocalDiskSingleSpillMapOutputWriter(shuffleId, mapId, blockResolver));
+
    }
 }

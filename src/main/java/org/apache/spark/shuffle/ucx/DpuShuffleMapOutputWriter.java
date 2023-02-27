@@ -48,6 +48,10 @@ import org.apache.log4j.Logger;
  //import org.apache.spark.internal.config.package;
  import org.apache.spark.shuffle.IndexShuffleBlockResolver;
  import org.apache.spark.util.Utils;
+
+
+ import org.openucx.nvkv.Nvkv;
+
  
  /**
   * Implementation of {@link ShuffleMapOutputWriter} that replicates the functionality of shuffle
@@ -56,10 +60,6 @@ import org.apache.log4j.Logger;
   */
 public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
   private static final Logger log = Logger.getLogger("LEO");
- 
-  //  private static final Logger log =
-  //    LoggerFactory.getLogger(LocalDiskShuffleMapOutputWriter.class);
- 
    private final int shuffleId;
    private final long mapId;
    private final IndexShuffleBlockResolver blockResolver;
@@ -112,7 +112,7 @@ public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
      } else {
        currChannelPosition = 0L;
      }
-     return new LocalDiskShufflePartitionWriter(reducePartitionId);
+     return new DpuShufflePartitionWriter(reducePartitionId);
    }
  
    @Override
@@ -177,20 +177,20 @@ public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
      }
    }
  
-   private class LocalDiskShufflePartitionWriter implements ShufflePartitionWriter {
+   private class DpuShufflePartitionWriter implements ShufflePartitionWriter {
  
      private final int partitionId;
      private PartitionWriterStream partStream = null;
      private PartitionWriterChannel partChannel = null;
  
-     private LocalDiskShufflePartitionWriter(int partitionId) {
-      log.info("LocalDiskShufflePartitionWriter ctor " + partitionId);
+     private DpuShufflePartitionWriter(int partitionId) {
+      log.info("DpuShufflePartitionWriter ctor " + partitionId);
        this.partitionId = partitionId;
      }
  
      @Override
      public OutputStream openStream() throws IOException {
-      log.info("LocalDiskShufflePartitionWriter openStream " + partitionId);
+      log.info("DpuShufflePartitionWriter openStream " + partitionId);
        if (partStream == null) {
          if (outputFileChannel != null) {
            throw new IllegalStateException("Requested an output channel for a previous write but" +
@@ -205,7 +205,7 @@ public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
  
      @Override
      public Optional<WritableByteChannelWrapper> openChannelWrapper() throws IOException {
-      log.info("LocalDiskShufflePartitionWriter openChannelWrapper " + partitionId);
+      log.info("DpuShufflePartitionWriter openChannelWrapper " + partitionId);
        if (partChannel == null) {
          if (partStream != null) {
            throw new IllegalStateException("Requested an output stream for a previous write but" +
@@ -220,7 +220,7 @@ public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
  
      @Override
      public long getNumBytesWritten() {
-      log.info("LocalDiskShufflePartitionWriter getNumBytesWritten " + partitionId);
+      log.info("DpuShufflePartitionWriter getNumBytesWritten " + partitionId);
        if (partChannel != null) {
          try {
            return partChannel.getCount();
