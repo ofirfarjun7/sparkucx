@@ -52,13 +52,8 @@ import org.apache.log4j.Logger;
 
  import org.openucx.nvkv.Nvkv;
 
- 
- /**
-  * Implementation of {@link ShuffleMapOutputWriter} that replicates the functionality of shuffle
-  * persisting shuffle data to local disk alongside index files, identical to Spark's historic
-  * canonical shuffle storage mechanism.
-  */
-public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
+
+public class NvkvShuffleMapOutputWriter implements ShuffleMapOutputWriter {
   private static final Logger log = Logger.getLogger("LEO");
    private final int shuffleId;
    private final long mapId;
@@ -75,13 +70,13 @@ public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
    private FileChannel outputFileChannel;
    private BufferedOutputStream outputBufferedFileStream;
  
-   public DpuShuffleMapOutputWriter(
+   public NvkvShuffleMapOutputWriter(
        int shuffleId,
        long mapId,
        int numPartitions,
        IndexShuffleBlockResolver blockResolver,
        SparkConf sparkConf) {
-    log.info("DpuShuffleMapOutputWriter ctor shuffleId " + shuffleId + " mapId " + mapId + " numPartitions " + numPartitions);
+    log.info("NvkvShuffleMapOutputWriter ctor shuffleId " + shuffleId + " mapId " + mapId + " numPartitions " + numPartitions);
      this.shuffleId = shuffleId;
      this.mapId = mapId;
      this.blockResolver = blockResolver;
@@ -99,7 +94,7 @@ public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
  
    @Override
    public ShufflePartitionWriter getPartitionWriter(int reducePartitionId) throws IOException {
-    log.info("DpuShuffleMapOutputWriter getPartitionWriter " + reducePartitionId);
+    log.info("NvkvShuffleMapOutputWriter getPartitionWriter " + reducePartitionId);
      if (reducePartitionId <= lastPartitionId) {
        throw new IllegalArgumentException("Partitions should be requested in increasing order.");
      }
@@ -112,12 +107,12 @@ public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
      } else {
        currChannelPosition = 0L;
      }
-     return new DpuShufflePartitionWriter(reducePartitionId);
+     return new NvkvShufflePartitionWriter(reducePartitionId);
    }
  
    @Override
    public long[] commitAllPartitions() throws IOException {
-    log.info("DpuShuffleMapOutputWriter commitAllPartitions");
+    log.info("NvkvShuffleMapOutputWriter commitAllPartitions");
      // Check the position after transferTo loop to see if it is in the right position and raise a
      // exception if it is incorrect. The position will not be increased to the expected length
      // after calling transferTo in kernel version 2.6.32. This issue is described at
@@ -146,7 +141,7 @@ public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
    }
  
    private void cleanUp() throws IOException {
-    log.info("DpuShuffleMapOutputWriter cleanUp");
+    log.info("NvkvShuffleMapOutputWriter cleanUp");
      if (outputBufferedFileStream != null) {
        outputBufferedFileStream.close();
      }
@@ -159,7 +154,7 @@ public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
    }
  
    private void initStream() throws IOException {
-    log.info("DpuShuffleMapOutputWriter initStream");
+    log.info("NvkvShuffleMapOutputWriter initStream");
      if (outputFileStream == null) {
        outputFileStream = new FileOutputStream(outputTempFile, true);
      }
@@ -169,7 +164,7 @@ public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
    }
  
    private void initChannel() throws IOException {
-    log.info("DpuShuffleMapOutputWriter initChannel");
+    log.info("NvkvShuffleMapOutputWriter initChannel");
      // This file needs to opened in append mode in order to work around a Linux kernel bug that
      // affects transferTo; see SPARK-3948 for more details.
      if (outputFileChannel == null) {
@@ -177,20 +172,20 @@ public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
      }
    }
  
-   private class DpuShufflePartitionWriter implements ShufflePartitionWriter {
+   private class NvkvShufflePartitionWriter implements ShufflePartitionWriter {
  
      private final int partitionId;
      private PartitionWriterStream partStream = null;
      private PartitionWriterChannel partChannel = null;
  
-     private DpuShufflePartitionWriter(int partitionId) {
-      log.info("DpuShufflePartitionWriter ctor " + partitionId);
+     private NvkvShufflePartitionWriter(int partitionId) {
+      log.info("NvkvShufflePartitionWriter ctor " + partitionId);
        this.partitionId = partitionId;
      }
  
      @Override
      public OutputStream openStream() throws IOException {
-      log.info("DpuShufflePartitionWriter openStream " + partitionId);
+      log.info("NvkvShufflePartitionWriter openStream " + partitionId);
        if (partStream == null) {
          if (outputFileChannel != null) {
            throw new IllegalStateException("Requested an output channel for a previous write but" +
@@ -205,7 +200,7 @@ public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
  
      @Override
      public Optional<WritableByteChannelWrapper> openChannelWrapper() throws IOException {
-      log.info("DpuShufflePartitionWriter openChannelWrapper " + partitionId);
+      log.info("NvkvShufflePartitionWriter openChannelWrapper " + partitionId);
        if (partChannel == null) {
          if (partStream != null) {
            throw new IllegalStateException("Requested an output stream for a previous write but" +
@@ -220,7 +215,7 @@ public class DpuShuffleMapOutputWriter implements ShuffleMapOutputWriter {
  
      @Override
      public long getNumBytesWritten() {
-      log.info("DpuShufflePartitionWriter getNumBytesWritten " + partitionId);
+      log.info("NvkvShufflePartitionWriter getNumBytesWritten " + partitionId);
        if (partChannel != null) {
          try {
            return partChannel.getCount();
