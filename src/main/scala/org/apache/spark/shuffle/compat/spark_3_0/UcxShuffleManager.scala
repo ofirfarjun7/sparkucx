@@ -11,6 +11,7 @@ import org.apache.spark.shuffle.compat.spark_3_0.{UcxShuffleBlockResolver, UcxSh
 import org.apache.spark.shuffle.sort.{SerializedShuffleHandle, SortShuffleWriter, UnsafeShuffleWriter}
 import org.apache.spark.shuffle.ucx.{CommonUcxShuffleManager, NvkvShuffleExecutorComponents}
 import org.apache.spark.{SparkConf, SparkEnv, TaskContext}
+import org.openucx.jnvkv.Nvkv;
 
 /**
  * Main entry point of Ucx shuffle plugin. It extends spark's default SortShufflePlugin
@@ -65,4 +66,10 @@ class UcxShuffleManager(override val conf: SparkConf, isDriver: Boolean)
     executorComponents
   }
 
+  @Override
+  override def stop() = {
+    logDebug("LEO UcxShuffleManager - Closing nvkv")
+    // Nvkv.fini()
+    super.stop()
+  }
 }
