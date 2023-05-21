@@ -93,6 +93,17 @@ public class NvkvShuffleMapOutputWriter implements ShuffleMapOutputWriter {
      this.outputFile = blockResolver.getDataFile(shuffleId, mapId);
      this.outputTempFile = null;
    }
+
+   private long getPartitionOffset() {
+    //TODO - read from conf
+    //TODO - add executer partition offset
+    int  numShuffles      = 1;
+    long numOfMappers     = 8;
+    long numOfReducers    = 4;
+    long shuffleBlockSize = nvkvHandler.getPartitionSize() / (numShuffles);
+    long mapBlockSize     = shuffleBlockSize / (numOfMappers);
+    return (shuffleId * shuffleBlockSize) + (mapId * mapBlockSize);
+   }
  
    @Override
    public ShufflePartitionWriter getPartitionWriter(int reducePartitionId) throws IOException {
@@ -107,7 +118,7 @@ public class NvkvShuffleMapOutputWriter implements ShuffleMapOutputWriter {
      if (outputFileChannel != null) {
        currChannelPosition = outputFileChannel.position();
      } else {
-       currChannelPosition = 0L;
+       currChannelPosition = getPartitionOffset();
      }
      return new NvkvShufflePartitionWriter(reducePartitionId);
    }
@@ -181,7 +192,7 @@ public class NvkvShuffleMapOutputWriter implements ShuffleMapOutputWriter {
      private PartitionWriterChannel partChannel = null;
  
      private NvkvShufflePartitionWriter(int partitionId) {
-      log.info("NvkvShufflePartitionWriter ctor " + partitionId);
+      log.info("NvkvShufflePartitionWriter ctor " + partitionId + " shuffleId " + shuffleId + " mapId " + mapId);
        this.partitionId = partitionId;
      }
  
@@ -240,7 +251,7 @@ public class NvkvShuffleMapOutputWriter implements ShuffleMapOutputWriter {
  
      PartitionWriterStream(int partitionId) {
       log.info("PartitionWriterStream ctor " + partitionId);
-       this.partitionId = partitionId;
+      this.partitionId = partitionId;
      }
  
      public long getCount() {
@@ -257,8 +268,9 @@ public class NvkvShuffleMapOutputWriter implements ShuffleMapOutputWriter {
  
      @Override
      public void write(byte[] buf, int pos, int length) throws IOException {
-        log.info("PartitionWriterStream write2 " + buf + " " + pos + " " + length);
-        nvkvHandler.write(buf, length);
+        long offset = currChannelPosition+count;
+        log.info("PartitionWriterStream write2 " + buf + " " + pos + " " + length + " currChannelPosition " + offset);
+        nvkvHandler.write(buf, length, offset);
         verifyNotClosed();
         outputBufferedFileStream.write(buf, pos, length);
         count += length;

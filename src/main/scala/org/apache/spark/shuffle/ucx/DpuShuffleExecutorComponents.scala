@@ -39,7 +39,8 @@ class NvkvShuffleExecutorComponents(val sparkConf: SparkConf) extends ShuffleExe
     }
     blockResolver = new IndexShuffleBlockResolver(sparkConf, blockManager);
     logDebug("LEO NvkvShuffleExecutorComponents initializeExecutor init NvkvHandler");
-    nvkvHandler = NvkvHandler.getWorker(execId)
+    //TODO - pass number of executors.
+    nvkvHandler = NvkvHandler.getHandler(1)
   }
 
   override def createMapOutputWriter(shuffleId: Int, mapTaskId: Long, numPartitions: Int) = {
