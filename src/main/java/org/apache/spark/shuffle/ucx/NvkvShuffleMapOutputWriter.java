@@ -49,7 +49,7 @@ import org.apache.log4j.Logger;
  import org.apache.spark.shuffle.IndexShuffleBlockResolver;
  import org.apache.spark.util.Utils;
 
- import org.openucx.jnvkv.NvkvWorker;
+ import org.openucx.jnvkv.NvkvHandler;
 
 
 public class NvkvShuffleMapOutputWriter implements ShuffleMapOutputWriter {
@@ -68,13 +68,13 @@ public class NvkvShuffleMapOutputWriter implements ShuffleMapOutputWriter {
    private FileOutputStream outputFileStream;
    private FileChannel outputFileChannel;
    private BufferedOutputStream outputBufferedFileStream;
-   private NvkvWorker nvkvWorker;
+   private NvkvHandler nvkvHandler;
  
    public NvkvShuffleMapOutputWriter(
        int shuffleId,
        long mapId,
        int numPartitions,
-       NvkvWorker nvkvWorker,
+       NvkvHandler nvkvHandler,
        IndexShuffleBlockResolver blockResolver,
        SparkConf sparkConf) {
     log.info("NvkvShuffleMapOutputWriter ctor shuffleId " + shuffleId + " mapId " + mapId + " numPartitions " + numPartitions);
@@ -83,7 +83,7 @@ public class NvkvShuffleMapOutputWriter implements ShuffleMapOutputWriter {
      this.blockResolver = blockResolver;
      this.bufferSize =
        (int) (long) 4096;
-     this.nvkvWorker = nvkvWorker;
+     this.nvkvHandler = nvkvHandler;
        
      //  sparkConf.get(
         // Temp!!
@@ -129,7 +129,7 @@ public class NvkvShuffleMapOutputWriter implements ShuffleMapOutputWriter {
      }
      cleanUp();
      File resolvedTmp = outputTempFile != null && outputTempFile.isFile() ? outputTempFile : null;
-      log.info("Writing shuffle index file for mapId " + mapId + " with length" + partitionLengths.length);
+      log.info("Writing shuffle index file for mapId " + mapId + " with lengths " + partitionLengths[0] + " " + partitionLengths[1]);
      blockResolver.writeIndexFileAndCommit(shuffleId, mapId, partitionLengths, resolvedTmp);
      return partitionLengths;
    }
@@ -258,7 +258,7 @@ public class NvkvShuffleMapOutputWriter implements ShuffleMapOutputWriter {
      @Override
      public void write(byte[] buf, int pos, int length) throws IOException {
         log.info("PartitionWriterStream write2 " + buf + " " + pos + " " + length);
-        nvkvWorker.write(buf, length);
+        nvkvHandler.write(buf, length);
         verifyNotClosed();
         outputBufferedFileStream.write(buf, pos, length);
         count += length;
