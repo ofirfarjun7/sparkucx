@@ -38,9 +38,6 @@ import org.apache.log4j.Logger;
  import java.nio.channels.WritableByteChannel;
  import java.util.Optional;
  
-//  import org.slf4j.Logger;
-//  import org.slf4j.LoggerFactory;
- 
  import org.apache.spark.SparkConf;
  import org.apache.spark.shuffle.api.ShuffleMapOutputWriter;
  import org.apache.spark.shuffle.api.ShufflePartitionWriter;
@@ -52,7 +49,7 @@ import org.apache.log4j.Logger;
  import org.openucx.jnvkv.NvkvHandler;
 
 
-public class NvkvShuffleMapOutputWriter implements ShuffleMapOutputWriter {
+public class NvkvShuffleMapOutputWriterOld implements ShuffleMapOutputWriter {
   private static final Logger log = Logger.getLogger("LEO");
    private final int shuffleId;
    private final long mapId;
@@ -70,7 +67,7 @@ public class NvkvShuffleMapOutputWriter implements ShuffleMapOutputWriter {
    private BufferedOutputStream outputBufferedFileStream;
    private NvkvHandler nvkvHandler;
  
-   public NvkvShuffleMapOutputWriter(
+   public NvkvShuffleMapOutputWriterOld(
        int shuffleId,
        long mapId,
        int numPartitions,
