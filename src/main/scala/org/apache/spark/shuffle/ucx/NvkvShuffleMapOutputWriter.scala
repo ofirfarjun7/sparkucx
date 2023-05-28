@@ -125,6 +125,14 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     cleanUp()
     val resolvedTmp = if (outputTempFile != null && outputTempFile.isFile) outputTempFile
     else null
+
+    var partitionOffset = getPartitionOffset;
+    partitionLengths.zip(0 until partitionLengths.size).foreach{ 
+        case (partitionLength, reduceId) => {
+            NvkvShuffleMapOutputWriter.log.info(s"Send DPU AM: shuffleId $shuffleId mapId $mapId reducerId $reduceId offset $partitionOffset size $partitionLength")
+            partitionOffset += partitionLength
+        }
+    }
     NvkvShuffleMapOutputWriter.log.info("Writing shuffle index file for mapId " + mapId + " with lengths " + partitionLengths(0) + " " + partitionLengths(1))
     blockResolver.writeIndexFileAndCommit(shuffleId, mapId, partitionLengths, resolvedTmp)
     partitionLengths

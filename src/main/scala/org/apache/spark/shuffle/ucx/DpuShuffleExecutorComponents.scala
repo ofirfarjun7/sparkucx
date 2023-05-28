@@ -24,11 +24,12 @@ import org.openucx.jnvkv.NvkvHandler;
 // temp
 import org.apache.spark.shuffle.sort.io.{LocalDiskShuffleMapOutputWriter, LocalDiskSingleSpillMapOutputWriter};
 
-class NvkvShuffleExecutorComponents(val sparkConf: SparkConf) extends ShuffleExecutorComponents with Logging {
+class NvkvShuffleExecutorComponents(val sparkConf: SparkConf, val ucxTransport: UcxShuffleTransport) extends ShuffleExecutorComponents with Logging {
   logDebug("LEO NvkvShuffleExecutorComponents constructor");
 
   private var blockResolver: IndexShuffleBlockResolver = null
   private var nvkvHandler: NvkvHandler = null
+  private var transport: UcxShuffleTransport = ucxTransport
 
 
   override def initializeExecutor(appId: String, execId: String, extraConfigs: Map[String, String]) = {
@@ -41,6 +42,9 @@ class NvkvShuffleExecutorComponents(val sparkConf: SparkConf) extends ShuffleExe
     logDebug("LEO NvkvShuffleExecutorComponents initializeExecutor init NvkvHandler");
     //TODO - pass number of executors.
     nvkvHandler = NvkvHandler.getHandler(1)
+    val resultBufferAllocator = (size: Long) => transport.hostBounceBufferMemoryPool.get(size)
+    transport.initExecuter(1, UcxShuffleBlockId(1, 1, 0), resultBufferAllocator)
+    transport.progress()
   }
 
   override def createMapOutputWriter(shuffleId: Int, mapTaskId: Long, numPartitions: Int) = {

@@ -193,12 +193,12 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
     // TODO: Skip connection if already connected to the DPU of this executor
 
     val startTime = System.currentTimeMillis()
-    while (!transport.executorAddresses.contains(executorId)) {
-      if  (System.currentTimeMillis() - startTime >
-        transport.ucxShuffleConf.getSparkConf.getTimeAsMs("spark.network.timeout", "100")) {
-        throw new UcxException(s"Don't get a worker address for $executorId")
-      }
-    }
+    // while (!transport.executorAddresses.contains(executorId)) {
+    //   if  (System.currentTimeMillis() - startTime >
+    //     transport.ucxShuffleConf.getSparkConf.getTimeAsMs("spark.network.timeout", "100")) {
+    //     throw new UcxException(s"Don't get a worker address for $executorId")
+    //   }
+    // }
 
     connections.getOrElseUpdate(executorId,  {
       val address = transport.executorAddresses(executorId)
@@ -240,6 +240,45 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
     (blockIds.zip(callbacks)).map {
       case (blockId, callback) => fetchBlockByBlockId(executorId, blockId, resultBufferAllocator, callback)
     }
+  }
+
+  def initExecuter(executorId: transport.ExecutorId, blockId: BlockId,
+                resultBufferAllocator: transport.BufferAllocator,
+                callback: OperationCallback): Request = {
+    val startTime = System.nanoTime()
+    val headerSize = blockId.serializedSize + UnsafeUtils.LONG_SIZE
+    val ep = getConnection(executorId)
+    val t = tag.incrementAndGet()
+    val length = 1
+
+    val buffer = Platform.allocateDirectBuffer(headerSize)
+    buffer.putLong(4)
+
+
+    val request = new UcxRequest(null, new UcxStats())
+    requestData.put(t, (Seq(callback), request, resultBufferAllocator))
+
+    buffer.rewind()
+    val address = UnsafeUtils.getAdress(buffer)
+    //val dataAddress = address + headerSize
+
+    logDebug(s"Sending message to init executer $executorId")
+    //dataAddress, buffer.capacity() - headerSize
+    ep.sendAmNonBlocking(UcpSparkAmId.PreInitExecutorReq, 0, 0, address, headerSize,
+      UcpConstants.UCP_AM_SEND_FLAG_EAGER | UcpConstants.UCP_AM_SEND_FLAG_REPLY, new UcxCallback() {
+       override def onSuccess(request: UcpRequest): Unit = {
+         buffer.clear()
+         logDebug(s"Sent message on $ep to $executorId to ini executer" +
+           s"in ${System.nanoTime() - startTime}ns")
+       }
+
+       override def onError(ucsStatus: Int, errorMsg: String): Unit = {
+          logError(s"Failed to send init executer message $errorMsg")
+        }
+     }, MEMORY_TYPE.UCS_MEMORY_TYPE_HOST)
+
+    worker.progressRequest(ep.flushNonBlocking(null))
+    request
   }
 
   def fetchBlockByBlockId(executorId: transport.ExecutorId, blockId: BlockId,

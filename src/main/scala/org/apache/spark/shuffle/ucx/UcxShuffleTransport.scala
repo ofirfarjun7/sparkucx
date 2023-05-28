@@ -113,8 +113,6 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
         }).setName(s"Endpoint to local DPU $address")
 
     localDpuEp = globalWorker.newEndpoint(endpointParams)
-
-
   }
 
   override def init(): Unit = {
@@ -194,6 +192,7 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
    * connection establishment outside of UcxShuffleManager.
    */
   override def addExecutor(executorId: ExecutorId, workerAddress: ByteBuffer): Unit = {
+    logDebug("LEO adding executor " + executorId)
     executorAddresses.put(executorId, workerAddress)
     allocatedClientWorkers.foreach(w => {
       w.getConnection(executorId)
@@ -272,6 +271,12 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
                                      callbacks: Seq[OperationCallback]): Seq[Request] = {
     allocatedClientWorkers((Thread.currentThread().getId % allocatedClientWorkers.length).toInt)
       .fetchBlocksByBlockIds(executorId, blockIds, resultBufferAllocator, callbacks)
+  }
+
+  def initExecuter(executorId: ExecutorId, blockId: BlockId,
+                                     resultBufferAllocator: BufferAllocator): Request = {
+    allocatedClientWorkers((Thread.currentThread().getId % allocatedClientWorkers.length).toInt)
+      .initExecuter(executorId, blockId, resultBufferAllocator, (result: OperationResult) => {logDebug("Init executer in UCX")})
   }
 
   // def connectServerWorkers(executorId: ExecutorId, workerAddress: ByteBuffer): Unit = {

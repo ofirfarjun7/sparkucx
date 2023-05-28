@@ -5,6 +5,8 @@
 package org.apache.spark.shuffle.ucx
 
 import java.net.InetSocketAddress
+import java.nio.ByteBuffer
+import java.nio.charset.StandardCharsets
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Success
@@ -67,11 +69,13 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
     // var address = SerializationUtils.deserializeInetAddress()
     transport.init()
     // Change logging level in settings!
-    logDebug(s"LEO startUcxTransport transport: $transport")
-    var address = new InetSocketAddress(DpuUtils.getLocalDpuAddress, 1338)
-    logDebug(s"LEO startUcxTransport address: $address")
+
+    // logDebug(s"LEO startUcxTransport transport: $transport")
+    // var address = new InetSocketAddress(DpuUtils.getLocalDpuAddress, 1338)
+    // logDebug(s"LEO startUcxTransport address: $address")
     ucxTransport = transport
-    logInfo(s"LEO startUcxTransport sending executor address $address")
+    // logInfo(s"LEO startUcxTransport sending executor address $address")
+
     // logInfo("LEO2 startUcxTransport")
     val rpcEnv = RpcEnv.create("ucx-rpc-env", blockManager.host, blockManager.port,
       conf, new SecurityManager(conf), clientMode = false)
@@ -80,13 +84,38 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
       s"ucx-shuffle-executor-${blockManager.executorId}",
       executorEndpoint)
     val driverEndpoint = RpcUtils.makeDriverRef(driverRpcName, conf, rpcEnv)
-    driverEndpoint.ask[IntroduceAllExecutors](ExecutorAdded(blockManager.executorId.toLong, endpoint,
-      new SerializableDirectBuffer(SerializationUtils.serializeInetAddress(address))))
-      .andThen {
-        case Success(msg) =>
-          logInfo(s"Receive reply $msg")
-          executorEndpoint.receive(msg)
-      }
+    logInfo(s"LEO startUcxTransport sending RPC IntroduceAllExecutors")
+    // transport.addExecutors((blockManager.executorId.toLong, new SerializableDirectBuffer(SerializationUtils.serializeInetAddress(address))))
+    // transport.preConnect()
+
+    // val addressString : String = "1.1.28.6"
+    // val hostString = ByteBuffer.wrap(addressString.getBytes)
+    // val address = ByteBuffer.allocateDirect(addressString.length + 4)
+    // address.putInt(1338)
+    // address.put(hostString)
+    // ucxTransport.addExecutor(1, address)
+    // transport.preConnect()
+
+    // val hostString = "1.1.28.6".getBytes(StandardCharsets.UTF_8)
+    // val hostString = "1.1.28.15".getBytes(StandardCharsets.UTF_8)
+    val hostString = "10.209.226.243".getBytes(StandardCharsets.UTF_8)
+    val address = ByteBuffer.allocateDirect(hostString.length + 4)
+    address.putInt(1338)
+    address.put(hostString)
+    ucxTransport.addExecutor(1, address)
+    transport.preConnect()
+    // val resultBufferAllocator = (size: Long) => ucxTransport.hostBounceBufferMemoryPool.get(size)
+    // transport.initExecuter(1, UcxShuffleBlockId(1, 1, 0), resultBufferAllocator)
+    // ucxTransport.progress()
+
+    // driverEndpoint.ask[IntroduceAllExecutors](ExecutorAdded(blockManager.executorId.toLong, endpoint,
+    //   new SerializableDirectBuffer(SerializationUtils.serializeInetAddress(address))))
+    //   .andThen {
+    //     case Success(msg) =>
+    //       logInfo(s"Receive reply $msg")
+    //       executorEndpoint.receive(msg)
+    //     case _ => logInfo(s"Receive Error reply")
+    //   }
   }
 
 
