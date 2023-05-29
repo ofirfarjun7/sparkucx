@@ -38,7 +38,6 @@ import org.apache.spark.shuffle.ucx
 
 import org.apache.spark.shuffle.compat.spark_3_0.UcxShuffleBlockResolver
 
-import org.openucx.jnvkv.NvkvHandler
 
 /*
  * Copyright (C) 2023, NVIDIA CORPORATION & AFFILIATES. ALL RIGHTS RESERVED.

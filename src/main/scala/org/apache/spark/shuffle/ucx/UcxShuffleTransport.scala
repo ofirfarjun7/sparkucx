@@ -115,6 +115,8 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
     localDpuEp = globalWorker.newEndpoint(endpointParams)
   }
 
+  def getContext: UcpContext = ucxContext
+
   override def init(): Unit = {
     logDebug("LEO init UcxShuffleTransport")
     if (ucxShuffleConf == null) {
@@ -129,7 +131,7 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
       //ucxShuffleConf.numListenerThreads // Each listener thread creates backward endpoint
     logInfo(s"Creating UCX context with an estimated number of endpoints: $numEndpoints")
 
-    val params = new UcpParams().requestAmFeature().setMtWorkersShared(true).setEstimatedNumEps(numEndpoints)
+    val params = new UcpParams().requestAmFeature().setMtWorkersShared(true).setEstimatedNumEps(numEndpoints).requestRmaFeature().requestExportedMemFeature()
       .requestAmFeature().setConfig("USE_MT_MUTEX", "yes")
 
     if (ucxShuffleConf.useWakeup) {

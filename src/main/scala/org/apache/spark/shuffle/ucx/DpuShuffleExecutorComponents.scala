@@ -19,8 +19,6 @@ import org.apache.spark.storage.BlockManager;
 // import org.apache.spark.shuffle.ucx.DpuShuffleMapOutputWriter;
 import org.apache.spark.shuffle.ucx;
 
-import org.openucx.jnvkv.NvkvHandler;
-
 // temp
 import org.apache.spark.shuffle.sort.io.{LocalDiskShuffleMapOutputWriter, LocalDiskSingleSpillMapOutputWriter};
 
@@ -41,7 +39,7 @@ class NvkvShuffleExecutorComponents(val sparkConf: SparkConf, val ucxTransport: 
     blockResolver = new IndexShuffleBlockResolver(sparkConf, blockManager);
     logDebug("LEO NvkvShuffleExecutorComponents initializeExecutor init NvkvHandler");
     //TODO - pass number of executors.
-    nvkvHandler = NvkvHandler.getHandler(1)
+    nvkvHandler = NvkvHandler.getHandler(ucxTransport.getContext, 1)
     val resultBufferAllocator = (size: Long) => transport.hostBounceBufferMemoryPool.get(size)
     transport.initExecuter(1, UcxShuffleBlockId(1, 1, 0), resultBufferAllocator)
     transport.progress()
