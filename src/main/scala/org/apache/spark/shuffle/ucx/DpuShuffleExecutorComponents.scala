@@ -41,7 +41,7 @@ class NvkvShuffleExecutorComponents(val sparkConf: SparkConf, val ucxTransport: 
     //TODO - pass number of executors.
     nvkvHandler = NvkvHandler.getHandler(ucxTransport.getContext, 1)
     val resultBufferAllocator = (size: Long) => transport.hostBounceBufferMemoryPool.get(size)
-    transport.initExecuter(1, UcxShuffleBlockId(1, 1, 0), resultBufferAllocator)
+    transport.initExecuter(1, nvkvHandler, resultBufferAllocator)
     transport.progress()
   }
 

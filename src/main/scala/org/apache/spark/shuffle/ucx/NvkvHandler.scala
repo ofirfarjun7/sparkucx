@@ -5,6 +5,7 @@ import org.openucx.jucx.ucp._
 import org.openucx.jucx.UcxException
 import org.openucx.jucx.ucs.UcsConstants
 import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import org.apache.spark.shuffle.utils.UnsafeUtils
 import org.apache.spark.internal.Logging
 
@@ -13,15 +14,12 @@ object NvkvHandler {
   private var worker: NvkvHandler = null
 
   def getHandler(ucxContext: UcpContext, numOfPartitions: Int): NvkvHandler = {
-//   def getHandler(numOfPartitions: Int): NvkvHandler = {
     if (worker == null) worker = new NvkvHandler(ucxContext, numOfPartitions)
-    // if (worker == null) worker = new NvkvHandler(numOfPartitions)
     worker
   }
 }
 
 class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: Long) extends Logging {
-// class NvkvHandler private(private var numOfPartitions: Long) extends Logging {
   final private val nvkvBufferSize = 65536
   final private val alignment = 512
   private var nvkvWriteBuffer: ByteBuffer = null
@@ -49,39 +47,32 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
   }
   if (!detected) throw new IllegalArgumentException("Nvkv device at address " + pciAddress + " not exists!")
 
-  this.nvkv = Nvkv.open(ds, Nvkv.LOCAL)
+  this.nvkv = Nvkv.open(ds, Nvkv.LOCAL|Nvkv.REMOTE)
   this.nvkvWriteBuffer = nvkv.alloc(nvkvBufferSize)
   this.nvkvReadBuffer = nvkv.alloc(nvkvBufferSize)
   this.partitionSize = this.nvkvSize / numOfPartitions
 
-  var ctxAddr: Array[Byte] = this.nvkv.export()
-  var ctxAddSize: Int = ctxAddr.length
+  var nvkvCtx: Array[Byte] = this.nvkv.export()
+  var nvkvCtxSize: Int = nvkvCtx.length
 
   logDebug(s"LEO Register bb")
   val mem: UcpMemory = ucxContext.registerMemory(this.nvkvReadBuffer)
   var mkeyBuffer: ByteBuffer = null
-//   try {
-    mkeyBuffer = mem.getExportedMkeyBuffer()
-//   } catch {
-//     case exception: UcxException =>
-//       throw new IllegalArgumentException("Failed to export key!")
-//   }
+  mkeyBuffer = mem.getExportedMkeyBuffer()
   
   logDebug(s"LEO Try to pack nvkv")
-  // ctxAddr size + ctxAddr + readBuf + ReadBuf length + max block size + mkeyBuffer size + mkeyBuffer
-//   packData = ByteBuffer.allocateDirect(4 + ctxAddSize + 8 + 8 + 4 + 4 + mkeyBuffer.capacity())
-  packData = ByteBuffer.allocateDirect(4 + ctxAddSize + 8 + 8 + 4 + 4)
-  packData.putInt(ctxAddSize)
-  packData.put(ctxAddr)
-//   packData.putLong(this.nvkvReadBuffer.address())
-//   packData.putLong(this.nvkvReadBuffer.asInstanceOf[sun.nio.ch.DirectBuffer].address())
+  // nvkvCtx size + nvkvCtx + readBuf + readBuf length + max block size + mkeyBuffer size + mkeyBuffer
+  packData = ByteBuffer.allocateDirect(4 + nvkvCtxSize + 8 + 8 + 4 + 4 + mkeyBuffer.capacity()).order(ByteOrder.nativeOrder())
+  packData.putInt(nvkvCtxSize)
+  packData.put(nvkvCtx)
   packData.putLong(UnsafeUtils.getAdress(this.nvkvReadBuffer))
   packData.putLong(1 * nvkvBufferSize)
   packData.putInt(nvkvBufferSize)
-//   packData.putInt(mkeyBuffer.capacity())
-//   packData.put(mkeyBuffer)
+  packData.putInt(mkeyBuffer.capacity())
+  packData.put(mkeyBuffer)
+  packData.rewind()
 
-  logDebug(s"LEO packedNvkv ctxAddr ${ctxAddr} ctxAddSize ${ctxAddSize} bb ${UnsafeUtils.getAdress(this.nvkvReadBuffer)}")
+  logDebug(s"LEO packedNvkv nvkvCtx ${nvkvCtx} nvkvCtxSize ${nvkvCtxSize} bb ${UnsafeUtils.getAdress(this.nvkvReadBuffer)}")
   logDebug(s"LEO packedNvkv packData capacity ${mkeyBuffer.capacity()} packData limit ${mkeyBuffer.limit()}")
 
   def pack: ByteBuffer = this.packData

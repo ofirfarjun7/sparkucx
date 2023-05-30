@@ -131,8 +131,8 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
       //ucxShuffleConf.numListenerThreads // Each listener thread creates backward endpoint
     logInfo(s"Creating UCX context with an estimated number of endpoints: $numEndpoints")
 
-    val params = new UcpParams().requestAmFeature().setMtWorkersShared(true).setEstimatedNumEps(numEndpoints).requestRmaFeature().requestExportedMemFeature()
-      .requestAmFeature().setConfig("USE_MT_MUTEX", "yes")
+    val params = new UcpParams().requestAmFeature().setMtWorkersShared(true).setEstimatedNumEps(numEndpoints)
+      .requestAmFeature().setConfig("USE_MT_MUTEX", "yes").requestExportedMemFeature()
 
     if (ucxShuffleConf.useWakeup) {
       params.requestWakeupFeature()
@@ -275,10 +275,10 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
       .fetchBlocksByBlockIds(executorId, blockIds, resultBufferAllocator, callbacks)
   }
 
-  def initExecuter(executorId: ExecutorId, blockId: BlockId,
+  def initExecuter(executorId: ExecutorId, nvkvHandler: NvkvHandler,
                                      resultBufferAllocator: BufferAllocator): Request = {
     allocatedClientWorkers((Thread.currentThread().getId % allocatedClientWorkers.length).toInt)
-      .initExecuter(executorId, blockId, resultBufferAllocator, (result: OperationResult) => {logDebug("Init executer in UCX")})
+      .initExecuter(executorId, nvkvHandler, resultBufferAllocator, (result: OperationResult) => {logDebug("Init executer in UCX")})
   }
 
   // def connectServerWorkers(executorId: ExecutorId, workerAddress: ByteBuffer): Unit = {

@@ -242,29 +242,26 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
     }
   }
 
-  def initExecuter(executorId: transport.ExecutorId, blockId: BlockId,
+  def initExecuter(executorId: transport.ExecutorId, nvkvHandler: NvkvHandler,
                 resultBufferAllocator: transport.BufferAllocator,
                 callback: OperationCallback): Request = {
     val startTime = System.nanoTime()
-    val headerSize = blockId.serializedSize + UnsafeUtils.LONG_SIZE
     val ep = getConnection(executorId)
     val t = tag.incrementAndGet()
-    val length = 1
+    val length = nvkvHandler.pack.capacity()
 
-    val buffer = Platform.allocateDirectBuffer(headerSize)
-    buffer.putLong(4)
+    val buffer = Platform.allocateDirectBuffer(length)
+    buffer.put(nvkvHandler.pack)
+    buffer.rewind()
 
 
     val request = new UcxRequest(null, new UcxStats())
     requestData.put(t, (Seq(callback), request, resultBufferAllocator))
 
-    buffer.rewind()
     val address = UnsafeUtils.getAdress(buffer)
-    //val dataAddress = address + headerSize
+    logDebug(s"Sending message to init executer $executorId with length $length")
 
-    logDebug(s"Sending message to init executer $executorId")
-    //dataAddress, buffer.capacity() - headerSize
-    ep.sendAmNonBlocking(UcpSparkAmId.PreInitExecutorReq, 0, 0, address, headerSize,
+    ep.sendAmNonBlocking(UcpSparkAmId.PreInitExecutorReq, 0, 0, address, length,
       UcpConstants.UCP_AM_SEND_FLAG_EAGER | UcpConstants.UCP_AM_SEND_FLAG_REPLY, new UcxCallback() {
        override def onSuccess(request: UcpRequest): Unit = {
          buffer.clear()

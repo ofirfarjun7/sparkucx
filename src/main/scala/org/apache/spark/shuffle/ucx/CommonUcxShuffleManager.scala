@@ -65,18 +65,9 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
   def startUcxTransport(): Unit = if (ucxTransport == null) {
     val blockManager = SparkEnv.get.blockManager.blockManagerId
     val transport = new UcxShuffleTransport(ucxShuffleConf, blockManager.executorId.toLong)
-    // Change address here
-    // var address = SerializationUtils.deserializeInetAddress()
     transport.init()
-    // Change logging level in settings!
-
-    // logDebug(s"LEO startUcxTransport transport: $transport")
-    // var address = new InetSocketAddress(DpuUtils.getLocalDpuAddress, 1338)
-    // logDebug(s"LEO startUcxTransport address: $address")
     ucxTransport = transport
-    // logInfo(s"LEO startUcxTransport sending executor address $address")
 
-    // logInfo("LEO2 startUcxTransport")
     val rpcEnv = RpcEnv.create("ucx-rpc-env", blockManager.host, blockManager.port,
       conf, new SecurityManager(conf), clientMode = false)
     executorEndpoint = new UcxExecutorRpcEndpoint(rpcEnv, ucxTransport, setupThread)
@@ -85,20 +76,9 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
       executorEndpoint)
     val driverEndpoint = RpcUtils.makeDriverRef(driverRpcName, conf, rpcEnv)
     logInfo(s"LEO startUcxTransport sending RPC IntroduceAllExecutors")
-    // transport.addExecutors((blockManager.executorId.toLong, new SerializableDirectBuffer(SerializationUtils.serializeInetAddress(address))))
-    // transport.preConnect()
 
-    // val addressString : String = "1.1.28.6"
-    // val hostString = ByteBuffer.wrap(addressString.getBytes)
-    // val address = ByteBuffer.allocateDirect(addressString.length + 4)
-    // address.putInt(1338)
-    // address.put(hostString)
-    // ucxTransport.addExecutor(1, address)
-    // transport.preConnect()
-
-    // val hostString = "1.1.28.6".getBytes(StandardCharsets.UTF_8)
-    // val hostString = "1.1.28.15".getBytes(StandardCharsets.UTF_8)
-    val hostString = "10.209.226.243".getBytes(StandardCharsets.UTF_8)
+    //bf-swx-ucx06
+    val hostString = "1.1.28.14".getBytes(StandardCharsets.UTF_8)
     val address = ByteBuffer.allocateDirect(hostString.length + 4)
     address.putInt(1338)
     address.put(hostString)
