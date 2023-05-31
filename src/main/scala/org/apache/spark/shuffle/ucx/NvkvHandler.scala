@@ -178,23 +178,22 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
             reducePartitionId: Int, bytes: Array[Byte], length: Int, offset: Long): Unit = {
     val source: ByteBuffer = ByteBuffer.wrap(bytes)
     var relativeOffset: Long = offset - nvkvWriteBuffer.position()
-    // var sourceOffset: Int = 0
     var sourceLimit: Int = 0
     var remain: Int = length
 
     while (remain > 0) {
         if (!nvkvWriteBuffer.hasRemaining()) {
+            nvkvWriteBuffer.rewind()
             logDebug(s"LEO NvkvHandler spill buffer relativeOffset $relativeOffset")
-            // val writeRequest = new WriteRequest(nvkvWriteBuffer, nvkvBufferSize, relativeOffset)
-            // val completion = post(writeRequest)
-            // pollCompletion(completion)
+            val writeRequest = new WriteRequest(nvkvWriteBuffer, nvkvBufferSize, relativeOffset)
+            val completion = post(writeRequest)
+            pollCompletion(completion)
             logDebug(s"LEO NvkvHandler write complete")
 
-            // read(nvkvBufferSize, relativeOffset)
-            // test(nvkvBufferSize)
+            read(nvkvBufferSize, relativeOffset)
+            test(nvkvBufferSize)
 
             relativeOffset += nvkvBufferSize
-            nvkvWriteBuffer.rewind()
         } else {
             sourceLimit = (source.position()+nvkvWriteBuffer.remaining()).min(length)
             logDebug(s"LEO source_position ${source.position()} buffer_remaining ${nvkvWriteBuffer.remaining()} source_capacity ${length}")
@@ -211,12 +210,12 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
     var relativeOffset: Long = offset - bufferPosition
     nvkvWriteBuffer.rewind()
     logDebug(s"LEO NvkvHandler write remaining size ${bufferPosition} relativeOffset ${relativeOffset}")
-    // val writeRequest = new WriteRequest(nvkvWriteBuffer, alignedLength, relativeOffset)
-    // val completion = post(writeRequest)
-    // pollCompletion(completion)
+    val writeRequest = new WriteRequest(nvkvWriteBuffer, nvkvBufferSize, relativeOffset)
+    val completion = post(writeRequest)
+    pollCompletion(completion)
     logDebug(s"LEO NvkvHandler write complete")
-    // read(bufferPosition, relativeOffset)
-    // test(bufferPosition)
+    read(bufferPosition, relativeOffset)
+    test(bufferPosition)
     (nvkvBufferSize - bufferPosition)
   }
 
