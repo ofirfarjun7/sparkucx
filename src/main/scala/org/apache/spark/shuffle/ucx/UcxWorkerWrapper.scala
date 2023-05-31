@@ -278,6 +278,42 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
     request
   }
 
+    def commitBlock(executorId: transport.ExecutorId, nvkvHandler: NvkvHandler,
+                resultBufferAllocator: transport.BufferAllocator, packMapperData: ByteBuffer,
+                callback: OperationCallback): Request = {
+    val startTime = System.nanoTime()
+    val ep = getConnection(executorId)
+    val t = tag.incrementAndGet()
+    val length = packMapperData.capacity()
+
+    val buffer = Platform.allocateDirectBuffer(length)
+    buffer.put(packMapperData)
+    buffer.rewind()
+
+
+    val request = new UcxRequest(null, new UcxStats())
+    requestData.put(t, (Seq(callback), request, resultBufferAllocator))
+
+    val address = UnsafeUtils.getAdress(buffer)
+    logDebug(s"Sending message to commit mapper info with length $length")
+
+    ep.sendAmNonBlocking(UcpSparkAmId.MapperInfo, 0, 0, address, length,
+      UcpConstants.UCP_AM_SEND_FLAG_EAGER | UcpConstants.UCP_AM_SEND_FLAG_REPLY, new UcxCallback() {
+       override def onSuccess(request: UcpRequest): Unit = {
+         buffer.clear()
+         logDebug(s"Sent message on $ep to $executorId to ini executer" +
+           s"in ${System.nanoTime() - startTime}ns")
+       }
+
+       override def onError(ucsStatus: Int, errorMsg: String): Unit = {
+          logError(s"Failed to send init executer message $errorMsg")
+        }
+     }, MEMORY_TYPE.UCS_MEMORY_TYPE_HOST)
+
+    worker.progressRequest(ep.flushNonBlocking(null))
+    request
+  }
+
   def fetchBlockByBlockId(executorId: transport.ExecutorId, blockId: BlockId,
                           resultBufferAllocator: transport.BufferAllocator,
                           callback: OperationCallback): Request = {

@@ -51,7 +51,7 @@ class NvkvShuffleExecutorComponents(val sparkConf: SparkConf, val ucxTransport: 
       throw new IllegalStateException(
           "Executor components must be initialized before getting writers.");
     }
-    new NvkvShuffleMapOutputWriter(shuffleId, mapTaskId, numPartitions, nvkvHandler, blockResolver, sparkConf);
+    new NvkvShuffleMapOutputWriter(shuffleId, mapTaskId, numPartitions, nvkvHandler, ucxTransport, blockResolver, sparkConf);
   }
 
   override def createSingleFileMapOutputWriter(shuffleId: Int, mapId: Long) = {

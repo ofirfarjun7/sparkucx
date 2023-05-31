@@ -276,9 +276,15 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
   }
 
   def initExecuter(executorId: ExecutorId, nvkvHandler: NvkvHandler,
-                                     resultBufferAllocator: BufferAllocator): Request = {
+                   resultBufferAllocator: BufferAllocator): Request = {
     allocatedClientWorkers((Thread.currentThread().getId % allocatedClientWorkers.length).toInt)
       .initExecuter(executorId, nvkvHandler, resultBufferAllocator, (result: OperationResult) => {logDebug("Init executer in UCX")})
+  }
+
+  def commitBlock(executorId: ExecutorId, nvkvHandler: NvkvHandler,
+                  resultBufferAllocator: BufferAllocator, packMapperData: ByteBuffer): Request = {
+    allocatedClientWorkers((Thread.currentThread().getId % allocatedClientWorkers.length).toInt)
+      .commitBlock(executorId, nvkvHandler, resultBufferAllocator, packMapperData, (result: OperationResult) => {logDebug("Init executer in UCX")})
   }
 
   // def connectServerWorkers(executorId: ExecutorId, workerAddress: ByteBuffer): Unit = {

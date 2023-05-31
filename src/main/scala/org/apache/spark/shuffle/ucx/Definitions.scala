@@ -25,4 +25,5 @@ object UcpSparkAmId {
     val InitExecutorAck = 1;
     val FetchReq = 2;
     val FetchAck = 3;
+    val MapperInfo = 4;
 }
