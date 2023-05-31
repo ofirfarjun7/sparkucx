@@ -20,7 +20,7 @@ object NvkvHandler {
 }
 
 class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: Long) extends Logging {
-  final private val nvkvBufferSize = 512
+  final private val nvkvBufferSize = 8192
   final private val alignment = 512
   private var nvkvWriteBuffer: ByteBuffer = null
   private var nvkvReadBuffer: ByteBuffer = null
