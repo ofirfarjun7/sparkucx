@@ -30,6 +30,7 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
   val ucxShuffleConf = new UcxShuffleConf(conf)
 
   @volatile var ucxTransport: UcxShuffleTransport = _
+  var nvkvHandler: NvkvHandler = null
 
   private var executorEndpoint: UcxExecutorRpcEndpoint = _
   private var driverEndpoint: UcxDriverRpcEndpoint = _
@@ -55,6 +56,7 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
           Thread.sleep(5)
         }
         startUcxTransport()
+        nvkvHandler = NvkvHandler.getHandler(ucxTransport.getContext, 1)
       }
     }
   })

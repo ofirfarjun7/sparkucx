@@ -25,6 +25,8 @@ class FileBackedMemoryBlock(baseAddress: Long, baseSize: Long, address: Long, si
 abstract class CommonUcxShuffleBlockResolver(ucxShuffleManager: CommonUcxShuffleManager)
   extends IndexShuffleBlockResolver(ucxShuffleManager.conf) {
 
+  logInfo(s"LEO CommonUcxShuffleBlockResolver")
+
   private val openFds = new ConcurrentHashMap[ShuffleId, ConcurrentLinkedQueue[RandomAccessFile]]()
 
   /**

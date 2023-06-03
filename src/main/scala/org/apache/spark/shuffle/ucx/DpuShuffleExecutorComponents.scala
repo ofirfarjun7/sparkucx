@@ -22,11 +22,11 @@ import org.apache.spark.shuffle.ucx;
 // temp
 import org.apache.spark.shuffle.sort.io.{LocalDiskShuffleMapOutputWriter, LocalDiskSingleSpillMapOutputWriter};
 
-class NvkvShuffleExecutorComponents(val sparkConf: SparkConf, val ucxTransport: UcxShuffleTransport) extends ShuffleExecutorComponents with Logging {
+class NvkvShuffleExecutorComponents(val sparkConf: SparkConf, val ucxTransport: UcxShuffleTransport, nvkv: NvkvHandler) extends ShuffleExecutorComponents with Logging {
   logDebug("LEO NvkvShuffleExecutorComponents constructor");
 
   private var blockResolver: IndexShuffleBlockResolver = null
-  private var nvkvHandler: NvkvHandler = null
+  private var nvkvHandler: NvkvHandler = nvkv
   private var transport: UcxShuffleTransport = ucxTransport
 
 
@@ -36,10 +36,9 @@ class NvkvShuffleExecutorComponents(val sparkConf: SparkConf, val ucxTransport: 
     if (blockManager == null) {
       throw new IllegalStateException("No blockManager available from the SparkEnv.");
     }
-    blockResolver = new IndexShuffleBlockResolver(sparkConf, blockManager);
     logDebug("LEO NvkvShuffleExecutorComponents initializeExecutor init NvkvHandler");
     //TODO - pass number of executors.
-    nvkvHandler = NvkvHandler.getHandler(ucxTransport.getContext, 1)
+    blockResolver = new IndexShuffleBlockResolver(sparkConf, blockManager);
     val resultBufferAllocator = (size: Long) => transport.hostBounceBufferMemoryPool.get(size)
     transport.initExecuter(1, nvkvHandler, resultBufferAllocator)
     transport.progress()
