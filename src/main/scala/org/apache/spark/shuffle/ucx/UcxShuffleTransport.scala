@@ -84,6 +84,7 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
 
   private var allocatedClientWorkers: Array[UcxWorkerWrapper] = _
 
+  //TODO - Check why Peter chose TrieMap to store the reduce blocks info
   private val registeredBlocks = new TrieMap[BlockId, Block]
   private var progressThread: Thread = _
   var hostBounceBufferMemoryPool: UcxHostBounceBuffersPool = _

@@ -16,6 +16,12 @@ import org.apache.spark.{SparkConf, SparkEnv, TaskContext}
  * Main entry point of Ucx shuffle plugin. It extends spark's default SortShufflePlugin
  * and injects needed logic in override methods.
  */
+
+ /**
+ TODOs
+ 1. Check how Spark decides when to spill reduce blocks to the HD, 
+    and how we can use it to improve performance.
+ */
 class UcxShuffleManager(override val conf: SparkConf, isDriver: Boolean)
   extends CommonUcxShuffleManager(conf, isDriver) {
 
