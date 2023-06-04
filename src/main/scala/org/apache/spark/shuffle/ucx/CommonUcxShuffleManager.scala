@@ -30,7 +30,6 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
   val ucxShuffleConf = new UcxShuffleConf(conf)
 
   @volatile var ucxTransport: UcxShuffleTransport = _
-  var nvkvHandler: NvkvHandler = null
 
   private var executorEndpoint: UcxExecutorRpcEndpoint = _
   private var driverEndpoint: UcxDriverRpcEndpoint = _
@@ -56,7 +55,6 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
           Thread.sleep(5)
         }
         startUcxTransport()
-        nvkvHandler = NvkvHandler.getHandler(ucxTransport.getContext, 1)
       }
     }
   })
@@ -79,8 +77,8 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
     val driverEndpoint = RpcUtils.makeDriverRef(driverRpcName, conf, rpcEnv)
     logInfo(s"LEO startUcxTransport sending RPC IntroduceAllExecutors")
 
-    //bf-swx-ucx06
-    val hostString = "1.1.28.14".getBytes(StandardCharsets.UTF_8)
+    //bf-swx-ucx08
+    val hostString = "1.1.28.38".getBytes(StandardCharsets.UTF_8)
     val address = ByteBuffer.allocateDirect(hostString.length + 4)
     address.putInt(1338)
     address.put(hostString)

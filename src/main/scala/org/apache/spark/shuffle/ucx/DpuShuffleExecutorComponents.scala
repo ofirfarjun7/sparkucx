@@ -22,11 +22,11 @@ import org.apache.spark.shuffle.ucx;
 // temp
 import org.apache.spark.shuffle.sort.io.{LocalDiskShuffleMapOutputWriter, LocalDiskSingleSpillMapOutputWriter};
 
-class NvkvShuffleExecutorComponents(val sparkConf: SparkConf, val ucxTransport: UcxShuffleTransport, nvkv: NvkvHandler) extends ShuffleExecutorComponents with Logging {
+class NvkvShuffleExecutorComponents(val sparkConf: SparkConf, val ucxTransport: UcxShuffleTransport)
+              extends ShuffleExecutorComponents with Logging {
   logDebug("LEO NvkvShuffleExecutorComponents constructor");
 
   private var blockResolver: IndexShuffleBlockResolver = null
-  private var nvkvHandler: NvkvHandler = nvkv
   private var transport: UcxShuffleTransport = ucxTransport
 
 
@@ -40,7 +40,7 @@ class NvkvShuffleExecutorComponents(val sparkConf: SparkConf, val ucxTransport: 
     //TODO - pass number of executors.
     blockResolver = new IndexShuffleBlockResolver(sparkConf, blockManager);
     val resultBufferAllocator = (size: Long) => transport.hostBounceBufferMemoryPool.get(size)
-    transport.initExecuter(1, nvkvHandler, resultBufferAllocator)
+    transport.initExecuter(1, resultBufferAllocator)
     transport.progress()
   }
 
@@ -50,7 +50,7 @@ class NvkvShuffleExecutorComponents(val sparkConf: SparkConf, val ucxTransport: 
       throw new IllegalStateException(
           "Executor components must be initialized before getting writers.");
     }
-    new NvkvShuffleMapOutputWriter(shuffleId, mapTaskId, numPartitions, nvkvHandler, ucxTransport, blockResolver, sparkConf);
+    new NvkvShuffleMapOutputWriter(shuffleId, mapTaskId, numPartitions, ucxTransport, blockResolver, sparkConf);
   }
 
   override def createSingleFileMapOutputWriter(shuffleId: Int, mapId: Long) = {

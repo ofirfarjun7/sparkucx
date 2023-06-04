@@ -77,7 +77,6 @@ object NvkvShuffleMapOutputWriter {
 class NvkvShuffleMapOutputWriter(private val shuffleId: Int, 
                                  private val mapId: Long, 
                                  numPartitions: Int, 
-                                 private var nvkvHandler: NvkvHandler, 
                                  val ucxTransport: UcxShuffleTransport,
                                  private val blockResolver: IndexShuffleBlockResolver, 
                                  sparkConf: SparkConf) extends ShuffleMapOutputWriter {
@@ -95,6 +94,7 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
   private var outputFileStream: FileOutputStream = null
   private var outputFileChannel: FileChannel = null
   private var outputBufferedFileStream: BufferedOutputStream = null
+  private var nvkvHandler: NvkvHandler = ucxTransport.getNvkvHandler
 
   private def getPartitionOffset = {
     //TODO - read from conf
@@ -142,6 +142,7 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
             NvkvShuffleMapOutputWriter.log.info(s"shuffleId $shuffleId mapId $mapId reducerId $reduceId offset $partitionOffset size $partitionLength")
             NvkvShuffleMapOutputWriter.log.info(s"padding ${partitionsPadding(reduceId)} offset ${nvkvHandler.getPartitonOffset(shuffleId, mapId, reduceId)} length ${nvkvHandler.getPartitonLength(shuffleId, mapId, reduceId)}")
             NvkvShuffleMapOutputWriter.log.info(s"Send DPU AM: shuffleId $shuffleId mapId $mapId reducerId $reduceId offset ${nvkvHandler.getPartitonOffset(shuffleId, mapId, reduceId)} size ${nvkvHandler.getPartitonLength(shuffleId, mapId, reduceId)}")
+            //TODO - move to shuffleTransport
             packMapperData.putLong(nvkvHandler.getPartitonOffset(shuffleId, mapId, reduceId))
             packMapperData.putLong(nvkvHandler.getPartitonLength(shuffleId, mapId, reduceId))
             partitionOffset += partitionLength
@@ -150,7 +151,7 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
 
     packMapperData.rewind
     val resultBufferAllocator = (size: Long) => ucxTransport.hostBounceBufferMemoryPool.get(size)
-    ucxTransport.commitBlock(1, nvkvHandler, resultBufferAllocator, packMapperData)
+    ucxTransport.commitBlock(1, resultBufferAllocator, packMapperData)
     NvkvShuffleMapOutputWriter.log.info("Writing shuffle index file for mapId " + mapId + " with lengths " + partitionLengths(0) + " " + partitionLengths(1))
     ucxTransport.progress()
     blockResolver.writeIndexFileAndCommit(shuffleId, mapId, partitionLengths, resolvedTmp)
