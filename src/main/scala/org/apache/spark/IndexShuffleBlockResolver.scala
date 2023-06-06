@@ -219,7 +219,7 @@ private[spark] class IndexShuffleBlockResolver(
   override def getBlockData(
       blockId: BlockId,
       dirs: Option[Array[String]]): ManagedBuffer = {
-    logDebug("LEO getBlockDatagetBlockData")
+    logDebug("LEO getBlockData")
     val (shuffleId, mapId, startReduceId, endReduceId) = blockId match {
       case id: ShuffleBlockId =>
         (id.shuffleId, id.mapId, id.reduceId, id.reduceId + 1)

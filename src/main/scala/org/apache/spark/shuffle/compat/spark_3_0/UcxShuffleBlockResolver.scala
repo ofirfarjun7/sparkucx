@@ -5,9 +5,13 @@
 package org.apache.spark.shuffle.compat.spark_3_0
 
 import java.io.{File, RandomAccessFile}
+import java.nio.ByteBuffer
 
 import org.apache.spark.TaskContext
-import org.apache.spark.shuffle.ucx.{CommonUcxShuffleBlockResolver, CommonUcxShuffleManager}
+import org.apache.spark.storage._
+import org.apache.spark.network.buffer.{NioManagedBuffer, ManagedBuffer}
+import org.apache.spark.shuffle.ucx.{UcxShuffleTransport, CommonUcxShuffleBlockResolver, CommonUcxShuffleManager}
+
 
 /**
  * Mapper entry point for UcxShuffle plugin. Performs memory registration
@@ -16,6 +20,8 @@ import org.apache.spark.shuffle.ucx.{CommonUcxShuffleBlockResolver, CommonUcxShu
 class UcxShuffleBlockResolver(ucxShuffleManager: CommonUcxShuffleManager)
   // TODO: Init UCX worker here; Is this a singleton?
   extends CommonUcxShuffleBlockResolver(ucxShuffleManager) {
+
+  val shuffleManager: CommonUcxShuffleManager = ucxShuffleManager
 
 
   override def writeIndexFileAndCommit(shuffleId: ShuffleId, mapId: Long,
@@ -29,5 +35,29 @@ class UcxShuffleBlockResolver(ucxShuffleManager: CommonUcxShuffleManager)
       return
     }
     writeIndexFileAndCommitCommon(shuffleId, partitionId, lengths, new RandomAccessFile(dataFile, "r"))
+  }
+
+  override def getBlockData(
+      blockId: BlockId,
+      dirs: Option[Array[String]]): ManagedBuffer = {
+    // var expected: ManagedBuffer = super.getBlockData(blockId, dirs)
+
+    logDebug("LEO UcxShuffleBlockResolver getBlockData")
+    val ucxTransport: UcxShuffleTransport = shuffleManager.ucxTransport
+    val (shuffleId, mapId, startReduceId, endReduceId) = blockId match {
+      case id: ShuffleBlockId =>
+        (id.shuffleId, id.mapId, id.reduceId, id.reduceId + 1)
+      case batchId: ShuffleBlockBatchId =>
+        (batchId.shuffleId, batchId.mapId, batchId.startReduceId, batchId.endReduceId)
+      case _ =>
+        throw new IllegalArgumentException("unexpected shuffle block id format: " + blockId)
+     }
+
+    var length = ucxTransport.getNvkvHandler.getPartitonLength(shuffleId, mapId, startReduceId).toInt
+    var offset = ucxTransport.getNvkvHandler.getPartitonOffset(shuffleId, mapId, startReduceId)
+    logDebug(s"LEO UcxShuffleBlockResolver shuffleId $shuffleId mapId $mapId startReduceId $startReduceId endReduceId $endReduceId offset $offset length $length")
+    val resultBuffer: ByteBuffer = ucxTransport.getNvkvHandler.read(length, offset)
+
+    new NioManagedBuffer(resultBuffer)
   }
 }
