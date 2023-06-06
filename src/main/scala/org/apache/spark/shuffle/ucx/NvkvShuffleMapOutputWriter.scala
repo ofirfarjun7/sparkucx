@@ -96,7 +96,7 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
   private var outputBufferedFileStream: BufferedOutputStream = null
   private var nvkvHandler: NvkvHandler = ucxTransport.getNvkvHandler
 
-  private def getPartitionOffset = {
+  private def getPartitionOffset(recudeId: Int): Long = {
     //TODO - read from conf
     //TODO - add executer partition offset
     val numShuffles = 1
@@ -104,7 +104,9 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     val numOfReducers = 4
     val shuffleBlockSize = nvkvHandler.getPartitionSize / numShuffles
     val mapBlockSize = shuffleBlockSize / numOfMappers
-    (shuffleId * shuffleBlockSize) + (mapId * mapBlockSize)
+    val reducePartitionSize = mapBlockSize / numOfReducers
+    var length: Long = (shuffleId * shuffleBlockSize) + (mapId * mapBlockSize) + (recudeId * reducePartitionSize)
+    (length - (length % 512))
   }
 
   @throws[IOException]
@@ -114,7 +116,7 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     lastPartitionId = reducePartitionId
     if (outputTempFile == null) outputTempFile = Utils.tempFileWith(outputFile)
     if (outputFileChannel != null) currChannelPosition = outputFileChannel.position
-    else currChannelPosition = getPartitionOffset
+    else currChannelPosition = getPartitionOffset(reducePartitionId)
     new NvkvShufflePartitionWriter(reducePartitionId)
   }
 
@@ -130,7 +132,6 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     val resolvedTmp = if (outputTempFile != null && outputTempFile.isFile) outputTempFile
     else null
 
-    var partitionOffset = getPartitionOffset;
     var packMapperData: ByteBuffer = ByteBuffer.allocateDirect(8 + 8 + 4 + 2*8*partitionLengths.size).order(ByteOrder.nativeOrder())
 
     packMapperData.putInt(1)
@@ -139,13 +140,14 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
 
     partitionLengths.zip(0 until partitionLengths.size).foreach{ 
         case (partitionLength, reduceId) => {
+            var partitionOffset = getPartitionOffset(reduceId);
             NvkvShuffleMapOutputWriter.log.info(s"shuffleId $shuffleId mapId $mapId reducerId $reduceId offset $partitionOffset size $partitionLength")
             NvkvShuffleMapOutputWriter.log.info(s"padding ${partitionsPadding(reduceId)} offset ${nvkvHandler.getPartitonOffset(shuffleId, mapId, reduceId)} length ${nvkvHandler.getPartitonLength(shuffleId, mapId, reduceId)}")
             NvkvShuffleMapOutputWriter.log.info(s"Send DPU AM: shuffleId $shuffleId mapId $mapId reducerId $reduceId offset ${nvkvHandler.getPartitonOffset(shuffleId, mapId, reduceId)} size ${nvkvHandler.getPartitonLength(shuffleId, mapId, reduceId)}")
             //TODO - move to shuffleTransport
             packMapperData.putLong(nvkvHandler.getPartitonOffset(shuffleId, mapId, reduceId))
             packMapperData.putLong(nvkvHandler.getPartitonLength(shuffleId, mapId, reduceId))
-            partitionOffset += partitionLength
+            // partitionOffset += partitionLength
         }
     }
 
@@ -257,7 +259,7 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
 
     override def close(): Unit = {
       var padding: Int = nvkvHandler.writeRemaining(currChannelPosition+count)
-      nvkvHandler.commitPartition(currChannelPosition+bytesWrittenToMergedFile+totalPartitionsPadding, count, shuffleId, mapId, partitionId)
+      nvkvHandler.commitPartition(currChannelPosition, count, shuffleId, mapId, partitionId)
       isClosed = true
       partitionLengths(partitionId) = count
       totalPartitionsPadding += padding
