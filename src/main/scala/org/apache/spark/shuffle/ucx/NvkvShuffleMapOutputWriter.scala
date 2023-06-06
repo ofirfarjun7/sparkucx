@@ -38,8 +38,6 @@ import org.apache.spark.shuffle.IndexShuffleBlockResolver
 import org.apache.spark.util.Utils
 import org.apache.spark.shuffle.ucx
 
-import org.apache.spark.shuffle.compat.spark_3_0.UcxShuffleBlockResolver
-
 
 /*
  * Copyright (C) 2023, NVIDIA CORPORATION & AFFILIATES. ALL RIGHTS RESERVED.
@@ -131,22 +129,22 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     val resolvedTmp = if (outputTempFile != null && outputTempFile.isFile) outputTempFile
     else null
 
-    var partitionOffset = getBlockOffset;
-    var packMapperData: ByteBuffer = ByteBuffer.allocateDirect(8 + 8 + 4 + 2*8*partitionLengths.size).order(ByteOrder.nativeOrder())
+    var blockOffset = getBlockOffset;
 
+    //TODO - move to shuffleTransport    
+    var packMapperData: ByteBuffer = ByteBuffer.allocateDirect(8 + 8 + 4 + 2*8*partitionLengths.size).order(ByteOrder.nativeOrder())
     packMapperData.putInt(1)
     packMapperData.putInt(partitionLengths.size)
     packMapperData.putInt(mapId.toInt)
 
     partitionLengths.zip(0 until partitionLengths.size).foreach{ 
         case (partitionLength, reduceId) => {
-            NvkvShuffleMapOutputWriter.log.info(s"shuffleId $shuffleId mapId $mapId reducerId $reduceId offset $partitionOffset size $partitionLength")
+            NvkvShuffleMapOutputWriter.log.info(s"shuffleId $shuffleId mapId $mapId reducerId $reduceId offset $blockOffset size $partitionLength")
             NvkvShuffleMapOutputWriter.log.info(s"padding ${partitionsPadding(reduceId)} offset ${nvkvHandler.getPartitonOffset(shuffleId, mapId, reduceId)} length ${nvkvHandler.getPartitonLength(shuffleId, mapId, reduceId)}")
             NvkvShuffleMapOutputWriter.log.info(s"Send DPU AM: shuffleId $shuffleId mapId $mapId reducerId $reduceId offset ${nvkvHandler.getPartitonOffset(shuffleId, mapId, reduceId)} size ${nvkvHandler.getPartitonLength(shuffleId, mapId, reduceId)}")
-            //TODO - move to shuffleTransport
             packMapperData.putLong(nvkvHandler.getPartitonOffset(shuffleId, mapId, reduceId))
             packMapperData.putLong(nvkvHandler.getPartitonLength(shuffleId, mapId, reduceId))
-            partitionOffset += partitionLength
+            blockOffset += partitionLength
         }
     }
 
