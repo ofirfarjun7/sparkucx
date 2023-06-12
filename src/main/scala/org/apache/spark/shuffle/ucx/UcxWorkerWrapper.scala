@@ -20,7 +20,7 @@ import org.apache.spark.shuffle.utils.UnsafeUtils
 import org.apache.spark.unsafe.Platform
 import org.apache.spark.util.ThreadUtils
 
-import java.nio.ByteBuffer
+import java.nio.{ByteBuffer, ByteOrder}
 import scala.collection.parallel.ForkJoinTaskSupport
 
 class UcxFailureOperationResult(errorMsg: String) extends OperationResult {
@@ -70,50 +70,95 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
     transport.ucxShuffleConf.numIoThreads)
   private val ioTaskSupport = new ForkJoinTaskSupport(ioThreadPool)
 
-  
-  // Receive block data handler
-  worker.setAmRecvHandler(1,
+  private var connectToRemoteNvkv = false
+  private var requestComplete = false
+
+  worker.setAmRecvHandler(UcpSparkAmId.InitExecutorAck,
+  (headerAddress: Long, headerSize: Long, ucpAmData: UcpAmData, _: UcpEndpoint) => {
+
+    logDebug(s"LEO InitExecutorAck called!")
+
+    if (ucpAmData.isDataValid) {
+      // val buff: ByteBuffer = UcxUtils.getByteBufferView(ucpAmData.getDataAddress, ucpAmData.getLength.toInt)
+      val buf: ByteBuffer = UcxUtils.getByteBufferView(ucpAmData.getDataAddress, ucpAmData.getLength.toInt)
+      var bytes: Array[Byte] = new Array[Byte](ucpAmData.getLength.toInt);
+      buf.get(bytes);
+      transport.getNvkvHandler.connectToRemote(bytes)
+      connectToRemoteNvkv = true
+    } else {
+      logDebug(s"LEO InitExecutorAck handler Invalid data!!!")  
+    }
+
+    logDebug(s"LEO Connected to remote nvkv on DPU")
+    UcsConstants.STATUS.UCS_OK
+  }, UcpConstants.UCP_AM_FLAG_PERSISTENT_DATA | UcpConstants.UCP_AM_FLAG_WHOLE_MSG)
+
+    def fetchBlock(executorId: transport.ExecutorId, shuffleId: Int, mapId: Long, reducePartitionId: Int,
+                 resultBufferAllocator: transport.BufferAllocator,
+                 callbacks: Seq[OperationCallback]): Request = {
+    val startTime = System.nanoTime()
+    val headerSize = UnsafeUtils.INT_SIZE * 3
+    val ep = getConnection(executorId)
+    val length = 1
+    logDebug(s"LEO fetchBlock called!")
+    val buffer = Platform.allocateDirectBuffer(headerSize).order(ByteOrder.nativeOrder())
+    buffer.putInt(shuffleId)
+    buffer.putInt(mapId.toInt)
+    buffer.putInt(reducePartitionId)
+
+    val request = new UcxRequest(null, new UcxStats())
+    requestData.put(0, (callbacks, request, resultBufferAllocator))
+
+    buffer.rewind()
+    val address = UnsafeUtils.getAdress(buffer)
+
+    ep.sendAmNonBlocking(UcpSparkAmId.FetchBlockReq, 0, 0, address, headerSize,
+      UcpConstants.UCP_AM_SEND_FLAG_EAGER | UcpConstants.UCP_AM_SEND_FLAG_REPLY, new UcxCallback() {
+       override def onSuccess(request: UcpRequest): Unit = {
+         buffer.clear()
+         logDebug(s"Sent message on $ep to $executorId to fetch block with length $length" +
+           s"in ${System.nanoTime() - startTime}ns")
+       }
+     }, MEMORY_TYPE.UCS_MEMORY_TYPE_HOST)
+
+    worker.progressRequest(ep.flushNonBlocking(null))
+    request
+  }
+
+  worker.setAmRecvHandler(UcpSparkAmId.FetchBlockReqAck,
     (headerAddress: Long, headerSize: Long, ucpAmData: UcpAmData, _: UcpEndpoint) => {
-      val headerBuffer = UnsafeUtils.getByteBufferView(headerAddress, headerSize.toInt)
-      val i = headerBuffer.getInt
-      val data = requestData.remove(i)
+      val data = requestData.remove(0)
+
+      logDebug(s"LEO Fetch block ack called!")
 
       if (data.isEmpty) {
-        throw new UcxException(s"No data for tag $i.")
+        throw new UcxException(s"No data for tag 0.")
       }
 
       val (callbacks, request, allocator) = data.get
       val stats = request.getStats.get.asInstanceOf[UcxStats]
       stats.receiveSize = ucpAmData.getLength
-
-      // Header contains tag followed by sizes of blocks
-      val numBlocks = (headerSize.toInt - UnsafeUtils.INT_SIZE) / UnsafeUtils.INT_SIZE
-
-      var offset = 0
-      val refCounts = new AtomicInteger(numBlocks)
+      val refCounts = new AtomicInteger(1)
       if (ucpAmData.isDataValid) {
         request.completed = true
         stats.endTime = System.nanoTime()
-        logDebug(s"Received amData: $ucpAmData for tag $i " +
-          s"in ${stats.getElapsedTimeNs} ns")
+        logDebug(s"Received block with length ${ucpAmData.getLength} in ${stats.getElapsedTimeNs} ns")
 
-        for (b <- 0 until numBlocks) {
-          val blockSize = headerBuffer.getInt
-          if (callbacks(b) != null) {
-            callbacks(b).onComplete(new OperationResult {
-              override def getStatus: OperationStatus.Value = OperationStatus.SUCCESS
+        if (callbacks(0) != null) {
+          callbacks(0).onComplete(new OperationResult {
+            override def getStatus: OperationStatus.Value = OperationStatus.SUCCESS
 
-              override def getError: TransportError = null
+            override def getError: TransportError = null
 
-              override def getStats: Option[OperationStats] = Some(stats)
+            override def getStats: Option[OperationStats] = Some(stats)
 
-              override def getData: MemoryBlock = new UcxAmDataMemoryBlock(ucpAmData, offset, blockSize, refCounts)
-            })
-            offset += blockSize
-          }
+            override def getData: MemoryBlock = new UcxAmDataMemoryBlock(ucpAmData, 0, stats.receiveSize, refCounts)
+          })
         }
         if (callbacks.isEmpty) UcsConstants.STATUS.UCS_OK else UcsConstants.STATUS.UCS_INPROGRESS
+
       } else {
+        logDebug(s"LEO Received RNDV rts Length: ${stats.receiveSize}")
         val mem = allocator(ucpAmData.getLength)
         stats.amHandleTime = System.nanoTime()
         request.setRequest(worker.recvAmDataNonBlocking(ucpAmData.getDataHandle, mem.address, ucpAmData.getLength,
@@ -121,22 +166,18 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
             override def onSuccess(r: UcpRequest): Unit = {
               request.completed = true
               stats.endTime = System.nanoTime()
-              logDebug(s"Received rndv data of size: ${mem.size} for tag $i in " +
+              logDebug(s"Received rndv data of size: ${mem.size} in " +
                 s"${stats.getElapsedTimeNs} ns " +
                 s"time from amHandle: ${System.nanoTime() - stats.amHandleTime} ns")
-              for (b <- 0 until numBlocks) {
-                val blockSize = headerBuffer.getInt
-                callbacks(b).onComplete(new OperationResult {
-                  override def getStatus: OperationStatus.Value = OperationStatus.SUCCESS
+              callbacks(0).onComplete(new OperationResult {
+                override def getStatus: OperationStatus.Value = OperationStatus.SUCCESS
 
-                  override def getError: TransportError = null
+                override def getError: TransportError = null
 
-                  override def getStats: Option[OperationStats] = Some(stats)
+                override def getStats: Option[OperationStats] = Some(stats)
 
-                  override def getData: MemoryBlock = new UcxRefCountMemoryBlock(mem, offset, blockSize, refCounts)
-                })
-                offset += blockSize
-              }
+                override def getData: MemoryBlock = new UcxRefCountMemoryBlock(mem, 0, stats.receiveSize, refCounts)
+              })
 
             }
           }, UcsConstants.MEMORY_TYPE.UCS_MEMORY_TYPE_HOST))
@@ -250,13 +291,14 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
     val t = tag.incrementAndGet()
     val length = nvkvHandler.pack.capacity()
 
+    // val buffer = Platform.allocateDirectBuffer(length).order(ByteOrder.nativeOrder())
     val buffer = Platform.allocateDirectBuffer(length)
     buffer.put(nvkvHandler.pack)
     buffer.rewind()
 
 
     val request = new UcxRequest(null, new UcxStats())
-    requestData.put(t, (Seq(callback), request, resultBufferAllocator))
+    // requestData.put(t, (Seq(callback), request, resultBufferAllocator))
 
     val address = UnsafeUtils.getAdress(buffer)
     logDebug(s"Sending message to init executer $executorId with length $length")
@@ -275,6 +317,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
      }, MEMORY_TYPE.UCS_MEMORY_TYPE_HOST)
 
     worker.progressRequest(ep.flushNonBlocking(null))
+    while (!connectToRemoteNvkv) {progress()}
     request
   }
 
@@ -292,7 +335,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
 
 
     val request = new UcxRequest(null, new UcxStats())
-    requestData.put(t, (Seq(callback), request, resultBufferAllocator))
+    // requestData.put(t, (Seq(callback), request, resultBufferAllocator))
 
     val address = UnsafeUtils.getAdress(buffer)
     logDebug(s"Sending message to commit mapper info with length $length")

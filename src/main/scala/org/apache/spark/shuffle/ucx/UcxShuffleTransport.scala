@@ -286,8 +286,16 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
 
   def commitBlock(executorId: ExecutorId, resultBufferAllocator: BufferAllocator, 
                   packMapperData: ByteBuffer): Request = {
+    logDebug(s"LEO commitBlock threadId ${Thread.currentThread().getId}")
     allocatedClientWorkers((Thread.currentThread().getId % allocatedClientWorkers.length).toInt)
       .commitBlock(executorId, nvkvHandler, resultBufferAllocator, packMapperData, (result: OperationResult) => {logDebug("Init executer in UCX")})
+  }
+
+  def fetchBlock(executorId: ExecutorId, shuffleId: Int, mapId: Long, reducePartitionId: Int,
+                 resultBufferAllocator: BufferAllocator, callbacks: Seq[OperationCallback]): Request = {
+    logDebug(s"LEO fetchBlock threadId ${Thread.currentThread().getId}")
+    allocatedClientWorkers((Thread.currentThread().getId % allocatedClientWorkers.length).toInt)
+      .fetchBlock(executorId, shuffleId, mapId, reducePartitionId, resultBufferAllocator, callbacks)
   }
 
   // def connectServerWorkers(executorId: ExecutorId, workerAddress: ByteBuffer): Unit = {

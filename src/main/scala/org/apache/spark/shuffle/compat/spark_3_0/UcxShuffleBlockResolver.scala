@@ -10,7 +10,8 @@ import java.nio.ByteBuffer
 import org.apache.spark.TaskContext
 import org.apache.spark.storage._
 import org.apache.spark.network.buffer.{NioManagedBuffer, ManagedBuffer}
-import org.apache.spark.shuffle.ucx.{UcxShuffleTransport, CommonUcxShuffleBlockResolver, CommonUcxShuffleManager}
+import org.apache.spark.shuffle.utils.UnsafeUtils
+import org.apache.spark.shuffle.ucx.{OperationCallback, OperationResult, UcxShuffleTransport, CommonUcxShuffleBlockResolver, CommonUcxShuffleManager}
 
 
 /**
@@ -37,13 +38,41 @@ class UcxShuffleBlockResolver(ucxShuffleManager: CommonUcxShuffleManager)
     writeIndexFileAndCommitCommon(shuffleId, partitionId, lengths, new RandomAccessFile(dataFile, "r"))
   }
 
+  private def getBlockFromDpu(shuffleId: Int, mapId: Long, reducePartitionId: Int): ByteBuffer = {
+    val ucxTransport: UcxShuffleTransport = shuffleManager.ucxTransport
+
+    logDebug("LEO UcxShuffleBlockResolver getBlockData from DPU")
+
+    val resultBufferAllocator = (size: Long) => ucxTransport.hostBounceBufferMemoryPool.get(size)
+    val callbacks = Array.ofDim[OperationCallback](1)
+    var fetchDone = false
+    var remoteResultBuffer = ByteBuffer.allocate(0);
+    callbacks(0) = (result: OperationResult) => {
+        val memBlock = result.getData
+        val buffer = UnsafeUtils.getByteBufferView(memBlock.address, memBlock.size.toInt)
+        logDebug(s"LEO Fetched block from DPU")
+        remoteResultBuffer = ByteBuffer.allocate(memBlock.size.toInt);
+        remoteResultBuffer.put(buffer)
+        remoteResultBuffer.flip()
+        memBlock.close()
+        fetchDone = true
+    }
+    val req = ucxTransport.fetchBlock(1, shuffleId, mapId, reducePartitionId, resultBufferAllocator, callbacks)
+
+    while (!fetchDone) {
+      ucxTransport.progress()
+    }
+    
+    remoteResultBuffer
+  }
+
   override def getBlockData(
       blockId: BlockId,
       dirs: Option[Array[String]]): ManagedBuffer = {
     // var expected: ManagedBuffer = super.getBlockData(blockId, dirs)
+    val ucxTransport: UcxShuffleTransport = shuffleManager.ucxTransport
 
     logDebug("LEO UcxShuffleBlockResolver getBlockData")
-    val ucxTransport: UcxShuffleTransport = shuffleManager.ucxTransport
     val (shuffleId, mapId, startReduceId, endReduceId) = blockId match {
       case id: ShuffleBlockId =>
         (id.shuffleId, id.mapId, id.reduceId, id.reduceId + 1)
@@ -55,9 +84,12 @@ class UcxShuffleBlockResolver(ucxShuffleManager: CommonUcxShuffleManager)
 
     var length = ucxTransport.getNvkvHandler.getPartitonLength(shuffleId, mapId, startReduceId).toInt
     var offset = ucxTransport.getNvkvHandler.getPartitonOffset(shuffleId, mapId, startReduceId)
-    logDebug(s"LEO UcxShuffleBlockResolver shuffleId $shuffleId mapId $mapId startReduceId $startReduceId endReduceId $endReduceId offset $offset length $length")
+    logDebug(s"LEO UcxShuffleBlockResolver shuffleId $shuffleId mapId $mapId educeId $startReduceId offset $offset length $length")
     val resultBuffer: ByteBuffer = ucxTransport.getNvkvHandler.read(length, offset)
 
-    new NioManagedBuffer(resultBuffer)
+    var remoteResultBuffer = getBlockFromDpu(shuffleId, mapId, startReduceId)
+
+    // new NioManagedBuffer(resultBuffer)
+    new NioManagedBuffer(remoteResultBuffer)
   }
 }

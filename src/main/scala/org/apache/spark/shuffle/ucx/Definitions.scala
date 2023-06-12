@@ -20,10 +20,12 @@ package org.apache.spark.shuffle.ucx.utils
 // }
 
 object UcpSparkAmId {
-    val InitExecutorReq = 0;
+    // val InitExecutorReq = 0;
     val PreInitExecutorReq = 2;
     val InitExecutorAck = 1;
     val FetchReq = 2;
-    val FetchAck = 3;
+    // val FetchAck = 3;
     val MapperInfo = 4;
+    val FetchBlockReq = 5;
+    val FetchBlockReqAck = 6;
 }

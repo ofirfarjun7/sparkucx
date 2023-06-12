@@ -10,6 +10,7 @@ import java.nio.ByteOrder
 import org.apache.spark.shuffle.utils.UnsafeUtils
 import org.apache.spark.internal.Logging
 import java.nio.BufferOverflowException
+import org.openucx.jnvkv.NvkvException
 
 object NvkvHandler {
   private var worker: NvkvHandler = null
@@ -35,7 +36,7 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
   //TODO - init accourding to the number of shuffle, map, reduce
   private var reducePartitions: Array[Array[ReducePartition]] = Array.ofDim[ReducePartition](8, 4)
   val pciAddress = "0000:41:00.0"
-  val logEnabled = false
+  val logEnabled = true
 
   private def nvkvLogDebug(msg: => String) {
     if (logEnabled) {
@@ -49,7 +50,7 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
   var detected = false
 
   for (i <- 0 until ds.length) {
-    nvkvLogDebug(s"LEO nvkv device: pciAddr " + ds(i).pciAddr + " nsid " + ds(i).nsid + " size " + ds(i).size)
+    nvkvLogDebug(s"LEO nvkv device[$i]: pciAddr " + ds(i).pciAddr + " nsid " + ds(i).nsid + " size " + ds(i).size)
     if (ds(i).pciAddr.equals(pciAddress)) {
       this.ds_idx = i
       this.nvkvSize = ds(i).size
@@ -58,12 +59,13 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
   }
   if (!detected) throw new IllegalArgumentException("Nvkv device at address " + pciAddress + " not exists!")
 
-  this.nvkv = Nvkv.open(ds, Nvkv.LOCAL|Nvkv.REMOTE)
+  nvkvLogDebug(s"LEO nvkv ds_id ${this.ds_idx}")
+  this.nvkv = Nvkv.open(ds.slice(0, 1), Nvkv.LOCAL|Nvkv.REMOTE)
   this.nvkvWriteBuffer = nvkv.alloc(nvkvBufferSize)
   this.nvkvReadBuffer = nvkv.alloc(nvkvReadBufferSize)
   this.partitionSize = this.nvkvSize / numOfPartitions
 
-  var nvkvCtx: Array[Byte] = this.nvkv.export()
+  var nvkvCtx: Array[Byte] = ByteBuffer.wrap(this.nvkv.export()).order(ByteOrder.nativeOrder()).array()
   var nvkvCtxSize: Int = nvkvCtx.length
 
   nvkvLogDebug(s"LEO Register bb")
@@ -87,6 +89,14 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
   nvkvLogDebug(s"LEO packedNvkv packData capacity ${mkeyBuffer.capacity()} packData limit ${mkeyBuffer.limit()}")
 
   def pack: ByteBuffer = this.packData
+
+  def connectToRemote(add: Array[Byte]): Unit = {
+    try {
+      nvkv.connect(add)
+    } catch {
+      case e: NvkvException => logDebug("LEO NvkvHandler: Failed to connect to remote nvkv received from DPU")
+    }
+  }
   
   private class Request(private var length: Long, private var offset: Long) {
     def getLength: Long = this.length
