@@ -50,7 +50,7 @@ class UcxShuffleBlockResolver(ucxShuffleManager: CommonUcxShuffleManager)
     callbacks(0) = (result: OperationResult) => {
         val memBlock = result.getData
         val buffer = UnsafeUtils.getByteBufferView(memBlock.address, memBlock.size.toInt)
-        logDebug(s"LEO Fetched block from DPU")
+        logDebug(s"LEO Fetched block from DPU ${memBlock.size.toInt}")
         remoteResultBuffer = ByteBuffer.allocate(memBlock.size.toInt);
         remoteResultBuffer.put(buffer)
         remoteResultBuffer.flip()
@@ -84,8 +84,8 @@ class UcxShuffleBlockResolver(ucxShuffleManager: CommonUcxShuffleManager)
 
     var length = ucxTransport.getNvkvHandler.getPartitonLength(shuffleId, mapId, startReduceId).toInt
     var offset = ucxTransport.getNvkvHandler.getPartitonOffset(shuffleId, mapId, startReduceId)
-    logDebug(s"LEO UcxShuffleBlockResolver shuffleId $shuffleId mapId $mapId educeId $startReduceId offset $offset length $length")
-    val resultBuffer: ByteBuffer = ucxTransport.getNvkvHandler.read(length, offset)
+    logDebug(s"LEO UcxShuffleBlockResolver shuffleId $shuffleId mapId $mapId reduceId $startReduceId offset $offset length $length")
+    // val resultBuffer: ByteBuffer = ucxTransport.getNvkvHandler.read(length, offset)
 
     var remoteResultBuffer = getBlockFromDpu(shuffleId, mapId, startReduceId)
 
