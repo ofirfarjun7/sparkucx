@@ -26,7 +26,7 @@ object DpuUtils {
         val hostname = java.net.InetAddress.getLocalHost.getHostName.split("\\.")(0)
         // logDebug(s"LEO hostname: $hostname")
         val dpuAddress = section.get(hostname)
-        // logDebug(s"LEO dpuAddress: $dpuAddress")
+        System.err.println(s"LEO dpuAddress: $dpuAddress")
 
         dpuAddress
     }

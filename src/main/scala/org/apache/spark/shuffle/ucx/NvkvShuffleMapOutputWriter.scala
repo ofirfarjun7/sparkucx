@@ -30,7 +30,7 @@ import java.nio.ByteOrder
 import java.nio.channels.FileChannel
 import java.nio.channels.WritableByteChannel
 import java.util.Optional
-import org.apache.spark.SparkConf
+import org.apache.spark.{SparkConf, SparkEnv}
 import org.apache.spark.shuffle.api.ShuffleMapOutputWriter
 import org.apache.spark.shuffle.api.ShufflePartitionWriter
 import org.apache.spark.shuffle.api.WritableByteChannelWrapper
@@ -95,11 +95,9 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
   private var nvkvHandler: NvkvHandler = ucxTransport.getNvkvHandler
 
   private def getBlockOffset = {
-    //TODO - read from conf
     //TODO - add executer partition offset
     val numShuffles = 1
-    val numOfMappers = 8
-    val numOfReducers = 4
+    val numOfMappers = SparkEnv.get.conf.getInt("spark.nvkv.mappers", 1)
     val shuffleBlockSize = nvkvHandler.getPartitionSize / numShuffles
     val mapBlockSize = shuffleBlockSize / numOfMappers
     (shuffleId * shuffleBlockSize) + (mapId * mapBlockSize)

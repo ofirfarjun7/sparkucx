@@ -77,10 +77,10 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
     val driverEndpoint = RpcUtils.makeDriverRef(driverRpcName, conf, rpcEnv)
     logInfo(s"LEO startUcxTransport sending RPC IntroduceAllExecutors")
 
-    val hostString = "1.1.28.35".getBytes(StandardCharsets.UTF_8)
-    val address = ByteBuffer.allocateDirect(hostString.length + 4)
+    val dpuAddress = DpuUtils.getLocalDpuAddress().getBytes(StandardCharsets.UTF_8)
+    val address = ByteBuffer.allocateDirect(dpuAddress.length + 4)
     address.putInt(1338)
-    address.put(hostString)
+    address.put(dpuAddress)
     ucxTransport.addExecutor(1, address)
     transport.preConnect()
     // val resultBufferAllocator = (size: Long) => ucxTransport.hostBounceBufferMemoryPool.get(size)

@@ -7,7 +7,7 @@ package org.apache.spark.shuffle.compat.spark_3_0
 import java.io.{File, RandomAccessFile}
 import java.nio.ByteBuffer
 
-import org.apache.spark.TaskContext
+import org.apache.spark.{TaskContext, SparkEnv}
 import org.apache.spark.storage._
 import org.apache.spark.network.buffer.{NioManagedBuffer, ManagedBuffer}
 import org.apache.spark.shuffle.utils.UnsafeUtils
@@ -81,15 +81,18 @@ class UcxShuffleBlockResolver(ucxShuffleManager: CommonUcxShuffleManager)
       case _ =>
         throw new IllegalArgumentException("unexpected shuffle block id format: " + blockId)
      }
-
-    var length = ucxTransport.getNvkvHandler.getPartitonLength(shuffleId, mapId, startReduceId).toInt
-    var offset = ucxTransport.getNvkvHandler.getPartitonOffset(shuffleId, mapId, startReduceId)
-    logDebug(s"LEO UcxShuffleBlockResolver shuffleId $shuffleId mapId $mapId reduceId $startReduceId offset $offset length $length")
-    // val resultBuffer: ByteBuffer = ucxTransport.getNvkvHandler.read(length, offset)
-
-    var remoteResultBuffer = getBlockFromDpu(shuffleId, mapId, startReduceId)
-
-    // new NioManagedBuffer(resultBuffer)
-    new NioManagedBuffer(remoteResultBuffer)
+    
+    var dpuEnabled = SparkEnv.get.conf.getBoolean("spark.dpuTest.enabled", true)
+    if (dpuEnabled) {
+      logDebug(s"LEO UcxShuffleBlockResolver - Reading $shuffleId mapId $mapId reduceId $startReduceId from the DPU")
+      var resultBuffer = getBlockFromDpu(shuffleId, mapId, startReduceId)
+      new NioManagedBuffer(resultBuffer)
+    } else {
+      var length = ucxTransport.getNvkvHandler.getPartitonLength(shuffleId, mapId, startReduceId).toInt
+      var offset = ucxTransport.getNvkvHandler.getPartitonOffset(shuffleId, mapId, startReduceId)
+      logDebug(s"LEO UcxShuffleBlockResolver - Reading shuffleId $shuffleId mapId $mapId reduceId $startReduceId at offset $offset with length $length from nvkv")
+      var resultBuffer = ucxTransport.getNvkvHandler.read(length, offset)
+      new NioManagedBuffer(resultBuffer)
+    }
   }
 }

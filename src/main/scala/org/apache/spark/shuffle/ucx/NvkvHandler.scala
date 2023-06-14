@@ -7,6 +7,7 @@ import org.openucx.jucx.UcxException
 import org.openucx.jucx.ucs.UcsConstants
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import org.apache.spark.SparkEnv
 import org.apache.spark.shuffle.utils.UnsafeUtils
 import org.apache.spark.internal.Logging
 import java.nio.BufferOverflowException
@@ -33,8 +34,9 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
   private var nvkvSize = 0L
   private var partitionSize = 0L
   private var packData: ByteBuffer = null
-  //TODO - init accourding to the number of shuffle, map, reduce
-  private var reducePartitions: Array[Array[ReducePartition]] = Array.ofDim[ReducePartition](8, 4)
+  val numOfMappers  = SparkEnv.get.conf.getInt("spark.nvkv.mappers", 1)
+  val numOfReducers = SparkEnv.get.conf.getInt("spark.nvkv.reducers", 1)
+  private var reducePartitions: Array[Array[ReducePartition]] = Array.ofDim[ReducePartition](numOfMappers, numOfReducers)
   val pciAddress = "0000:41:00.0"
   val logEnabled = true
 
