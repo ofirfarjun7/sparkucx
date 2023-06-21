@@ -29,6 +29,7 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
   final private val alignment = 512
   private var nvkvWriteBuffer: ByteBuffer = null
   private var nvkvReadBuffer: ByteBuffer = null
+  private var nvkvRemoteReadBuffer: ByteBuffer = null
   private var nvkv: Nvkv.Context = null
   private var ds_idx = 0
   private var nvkvSize = 0L
@@ -65,13 +66,14 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
   this.nvkv = Nvkv.open(ds.slice(0, 1), Nvkv.LOCAL|Nvkv.REMOTE)
   this.nvkvWriteBuffer = nvkv.alloc(nvkvBufferSize)
   this.nvkvReadBuffer = nvkv.alloc(nvkvReadBufferSize)
+  this.nvkvRemoteReadBuffer = nvkv.alloc(nvkvReadBufferSize)
   this.partitionSize = this.nvkvSize / numOfPartitions
 
   var nvkvCtx: Array[Byte] = ByteBuffer.wrap(this.nvkv.export()).order(ByteOrder.nativeOrder()).array()
   var nvkvCtxSize: Int = nvkvCtx.length
 
   nvkvLogDebug(s"LEO Register bb")
-  val mem: UcpMemory = ucxContext.registerMemory(this.nvkvReadBuffer)
+  val mem: UcpMemory = ucxContext.registerMemory(this.nvkvRemoteReadBuffer)
   var mkeyBuffer: ByteBuffer = null
   mkeyBuffer = mem.getExportedMkeyBuffer()
   
@@ -80,14 +82,14 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
   packData = ByteBuffer.allocateDirect(4 + nvkvCtxSize + 8 + 8 + 4 + 4 + mkeyBuffer.capacity()).order(ByteOrder.nativeOrder())
   packData.putInt(nvkvCtxSize)
   packData.put(nvkvCtx)
-  packData.putLong(UnsafeUtils.getAdress(this.nvkvReadBuffer))
+  packData.putLong(UnsafeUtils.getAdress(this.nvkvRemoteReadBuffer))
   packData.putLong(1 * nvkvReadBufferSize)
   packData.putInt(nvkvReadBufferSize)
   packData.putInt(mkeyBuffer.capacity())
   packData.put(mkeyBuffer)
   packData.rewind()
 
-  nvkvLogDebug(s"LEO packedNvkv nvkvCtx ${nvkvCtx} nvkvCtxSize ${nvkvCtxSize} bb ${UnsafeUtils.getAdress(this.nvkvReadBuffer)}")
+  nvkvLogDebug(s"LEO packedNvkv nvkvCtx ${nvkvCtx} nvkvCtxSize ${nvkvCtxSize} bb ${UnsafeUtils.getAdress(this.nvkvRemoteReadBuffer)}")
   nvkvLogDebug(s"LEO packedNvkv packData capacity ${mkeyBuffer.capacity()} packData limit ${mkeyBuffer.limit()}")
 
   def pack: ByteBuffer = this.packData

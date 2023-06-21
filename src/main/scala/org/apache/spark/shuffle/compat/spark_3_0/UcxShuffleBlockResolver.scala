@@ -69,7 +69,8 @@ class UcxShuffleBlockResolver(ucxShuffleManager: CommonUcxShuffleManager)
   override def getBlockData(
       blockId: BlockId,
       dirs: Option[Array[String]]): ManagedBuffer = {
-    // var expected: ManagedBuffer = super.getBlockData(blockId, dirs)
+    // super.getBlockData(blockId, dirs)
+
     val ucxTransport: UcxShuffleTransport = shuffleManager.ucxTransport
 
     logDebug("LEO UcxShuffleBlockResolver getBlockData")

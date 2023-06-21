@@ -61,7 +61,7 @@ class UcxShuffleManager(override val conf: SparkConf, isDriver: Boolean)
 
   private def loadShuffleExecutorComponents(conf: SparkConf): ShuffleExecutorComponents = {
     logDebug("LEO UcxShuffleManager loadShuffleExecutorComponents")
-    val executorComponents = new NvkvShuffleExecutorComponents(conf, ucxTransport)
+    val executorComponents = new NvkvShuffleExecutorComponents(conf, getTransport)
     val extraConfigs = conf.getAllWithPrefix(ShuffleDataIOUtils.SHUFFLE_SPARK_CONF_PREFIX)
       .toMap
     executorComponents.initializeExecutor(

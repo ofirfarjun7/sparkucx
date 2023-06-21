@@ -22,13 +22,12 @@ import org.apache.spark.shuffle.ucx;
 // temp
 import org.apache.spark.shuffle.sort.io.{LocalDiskShuffleMapOutputWriter, LocalDiskSingleSpillMapOutputWriter};
 
-class NvkvShuffleExecutorComponents(val sparkConf: SparkConf, val ucxTransport: UcxShuffleTransport)
+class NvkvShuffleExecutorComponents(val sparkConf: SparkConf, getTransport: () => UcxShuffleTransport)
               extends ShuffleExecutorComponents with Logging {
   logDebug("LEO NvkvShuffleExecutorComponents constructor");
 
   private var blockResolver: IndexShuffleBlockResolver = null
-  private var transport: UcxShuffleTransport = ucxTransport
-
+  var transport: UcxShuffleTransport = _
 
   override def initializeExecutor(appId: String, execId: String, extraConfigs: Map[String, String]) = {
     logDebug("LEO NvkvShuffleExecutorComponents initializeExecutor");
@@ -39,6 +38,13 @@ class NvkvShuffleExecutorComponents(val sparkConf: SparkConf, val ucxTransport: 
     logDebug("LEO NvkvShuffleExecutorComponents initializeExecutor init NvkvHandler");
     //TODO - pass number of executors.
     blockResolver = new IndexShuffleBlockResolver(sparkConf, blockManager);
+
+    while (getTransport() == null) {
+      logDebug("LEO NvkvShuffleExecutorComponents transport is null")
+      Thread.sleep(1)
+    }
+
+    transport = getTransport()
     val resultBufferAllocator = (size: Long) => transport.hostBounceBufferMemoryPool.get(size)
     transport.initExecuter(1, resultBufferAllocator)
     transport.progress()
@@ -50,7 +56,7 @@ class NvkvShuffleExecutorComponents(val sparkConf: SparkConf, val ucxTransport: 
       throw new IllegalStateException(
           "Executor components must be initialized before getting writers.");
     }
-    new NvkvShuffleMapOutputWriter(shuffleId, mapTaskId, numPartitions, ucxTransport, blockResolver, sparkConf);
+    new NvkvShuffleMapOutputWriter(shuffleId, mapTaskId, numPartitions, getTransport(), blockResolver, sparkConf);
   }
 
   override def createSingleFileMapOutputWriter(shuffleId: Int, mapId: Long) = {

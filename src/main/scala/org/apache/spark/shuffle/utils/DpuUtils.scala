@@ -30,4 +30,22 @@ object DpuUtils {
 
         dpuAddress
     }
+
+    def getRemoteDpuAddress(): String = {
+        val ini = new Ini(new File(CLUSTER_CONF_FILE))
+        val section = ini.get("dpu")
+        // logDebug(s"LEO section: $section")
+        val hostname = java.net.InetAddress.getLocalHost.getHostName.split("\\.")(0)
+        if (hostname == "swx-ucx05") {
+          val remoteDpu = "swx-ucx06"
+          val dpuAddress = section.get(remoteDpu)
+          System.err.println(s"LEO remoteDpuAddress: $dpuAddress")
+          dpuAddress
+        } else {
+          val remoteDpu = "swx-ucx05"
+          val dpuAddress = section.get(remoteDpu)
+          System.err.println(s"LEO remoteDpuAddress: $dpuAddress")
+          dpuAddress
+        }
+    }
 }

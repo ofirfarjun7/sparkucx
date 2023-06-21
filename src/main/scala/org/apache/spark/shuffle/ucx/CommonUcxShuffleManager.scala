@@ -40,6 +40,8 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
 
   logDebug("LEO CommonUcxShuffleManager")
 
+  def getTransport(): UcxShuffleTransport = { ucxTransport }
+
   setupThread.submit(new Runnable {
     override def run(): Unit = {
       while (SparkEnv.get == null) {
@@ -63,14 +65,14 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
    * Atomically starts UcxNode singleton - one for all shuffle threads.
    */
   def startUcxTransport(): Unit = if (ucxTransport == null) {
+    logInfo(s"LEO startUcxTransport")
     val blockManager = SparkEnv.get.blockManager.blockManagerId
     val transport = new UcxShuffleTransport(ucxShuffleConf, blockManager.executorId.toLong)
     transport.init()
-    ucxTransport = transport
 
     val rpcEnv = RpcEnv.create("ucx-rpc-env", blockManager.host, blockManager.port,
       conf, new SecurityManager(conf), clientMode = false)
-    executorEndpoint = new UcxExecutorRpcEndpoint(rpcEnv, ucxTransport, setupThread)
+    executorEndpoint = new UcxExecutorRpcEndpoint(rpcEnv, transport, setupThread)
     val endpoint = rpcEnv.setupEndpoint(
       s"ucx-shuffle-executor-${blockManager.executorId}",
       executorEndpoint)
@@ -81,8 +83,17 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
     val address = ByteBuffer.allocateDirect(dpuAddress.length + 4)
     address.putInt(1338)
     address.put(dpuAddress)
-    ucxTransport.addExecutor(1, address)
+    val remoteDpuAddress = DpuUtils.getRemoteDpuAddress().getBytes(StandardCharsets.UTF_8)
+    val remoteAddress = ByteBuffer.allocateDirect(remoteDpuAddress.length + 4)
+    remoteAddress.putInt(1338)
+    remoteAddress.put(remoteDpuAddress)
+
+    transport.addExecutor(1, address)
     transport.preConnect()
+    transport.addExecutor(2, remoteAddress)
+    transport.preConnect()
+
+    ucxTransport = transport
     // val resultBufferAllocator = (size: Long) => ucxTransport.hostBounceBufferMemoryPool.get(size)
     // transport.initExecuter(1, UcxShuffleBlockId(1, 1, 0), resultBufferAllocator)
     // ucxTransport.progress()
