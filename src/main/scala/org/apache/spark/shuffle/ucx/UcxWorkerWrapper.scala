@@ -303,7 +303,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
     val address = UnsafeUtils.getAdress(buffer)
     logDebug(s"Sending message to init executer $executorId with length $length")
 
-    ep.sendAmNonBlocking(UcpSparkAmId.PreInitExecutorReq, 0, 0, address, length,
+    ep.sendAmNonBlocking(UcpSparkAmId.InitExecutorReq, 0, 0, address, length,
       UcpConstants.UCP_AM_SEND_FLAG_EAGER | UcpConstants.UCP_AM_SEND_FLAG_REPLY, new UcxCallback() {
        override def onSuccess(request: UcpRequest): Unit = {
          buffer.clear()
@@ -381,7 +381,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
 
     logDebug(s"Sending message to fetch block ${blockId.asInstanceOf[BlockId]} buffer: $buffer")
 //dataAddress, buffer.capacity() - headerSize
-    ep.sendAmNonBlocking(UcpSparkAmId.FetchReq, 0, 0, address, headerSize,
+    ep.sendAmNonBlocking(UcpSparkAmId.FetchBlockReq, 0, 0, address, headerSize,
       UcpConstants.UCP_AM_SEND_FLAG_EAGER | UcpConstants.UCP_AM_SEND_FLAG_REPLY, new UcxCallback() {
        override def onSuccess(request: UcpRequest): Unit = {
          buffer.clear()
