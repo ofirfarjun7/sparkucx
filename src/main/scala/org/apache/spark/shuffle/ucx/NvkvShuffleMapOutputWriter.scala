@@ -93,6 +93,7 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
   private var outputFileChannel: FileChannel = null
   private var outputBufferedFileStream: BufferedOutputStream = null
   private var nvkvHandler: NvkvHandler = ucxTransport.getNvkvHandler
+  private var executerId = SparkEnv.get.blockManager.blockManagerId.executorId.toLong
 
   private def getBlockOffset = {
     //TODO - add executer partition offset
@@ -148,7 +149,7 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
 
     packMapperData.rewind
     val resultBufferAllocator = (size: Long) => ucxTransport.hostBounceBufferMemoryPool.get(size)
-    ucxTransport.commitBlock(1, resultBufferAllocator, packMapperData)
+    ucxTransport.commitBlock(executerId, resultBufferAllocator, packMapperData)
     NvkvShuffleMapOutputWriter.log.info("Writing shuffle index file for mapId " + mapId + " with lengths " + partitionLengths(0) + " " + partitionLengths(1))
     ucxTransport.progress()
     blockResolver.writeIndexFileAndCommit(shuffleId, mapId, partitionLengths, resolvedTmp)

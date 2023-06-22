@@ -23,6 +23,7 @@ class UcxExecutorRpcEndpoint(override val rpcEnv: RpcEnv, transport: UcxShuffleT
       logDebug(s"LEO ucxWorkerAddress: ${SerializationUtils.deserializeInetAddress(ucxWorkerAddress.value)}")
       executorService.submit(new Runnable() {
         override def run(): Unit = {
+          logDebug(s"LEO ExecutorRpc transport.addExecutor($executorId, ${SerializationUtils.deserializeInetAddress(ucxWorkerAddress.value)})")
           transport.addExecutor(executorId, ucxWorkerAddress.value)
         }
       })
@@ -30,6 +31,7 @@ class UcxExecutorRpcEndpoint(override val rpcEnv: RpcEnv, transport: UcxShuffleT
       logDebug(s"LEO received IntroduceAllExecutors(${executorIdToWorkerAdresses.keys.mkString(",")}")
       executorService.submit(new Runnable() {
         override def run(): Unit = {
+          logDebug(s"LEO ExecutorRpc transport.addExecutors(executorIdToWorkerAdresses)")
           transport.addExecutors(executorIdToWorkerAdresses)
           transport.preConnect()
         }

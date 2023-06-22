@@ -40,13 +40,12 @@ class NvkvShuffleExecutorComponents(val sparkConf: SparkConf, getTransport: () =
     blockResolver = new IndexShuffleBlockResolver(sparkConf, blockManager);
 
     while (getTransport() == null) {
-      logDebug("LEO NvkvShuffleExecutorComponents transport is null")
-      Thread.sleep(1)
+      Thread.sleep(10)
     }
 
     transport = getTransport()
     val resultBufferAllocator = (size: Long) => transport.hostBounceBufferMemoryPool.get(size)
-    transport.initExecuter(1, resultBufferAllocator)
+    transport.initExecuter(blockManager.blockManagerId.executorId.toLong, resultBufferAllocator)
     transport.progress()
   }
 

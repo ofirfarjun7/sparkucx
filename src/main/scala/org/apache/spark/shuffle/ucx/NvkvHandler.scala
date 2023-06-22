@@ -39,7 +39,7 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
   val numOfReducers = SparkEnv.get.conf.getInt("spark.nvkv.reducers", 1)
   private var reducePartitions: Array[Array[ReducePartition]] = Array.ofDim[ReducePartition](numOfMappers, numOfReducers)
   val pciAddress = "0000:41:00.0"
-  val logEnabled = true
+  val logEnabled = false
 
   private def nvkvLogDebug(msg: => String) {
     if (logEnabled) {

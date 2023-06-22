@@ -147,7 +147,6 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
 
     nvkvHandler = NvkvHandler.getHandler(ucxContext, 1)
 
-    connectToLocalDpu()
     // progressThread = new GlobalWorkerRpcThread(globalWorker, this)
     // progressThread.start()
 

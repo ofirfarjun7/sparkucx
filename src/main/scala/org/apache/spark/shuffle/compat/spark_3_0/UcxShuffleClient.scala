@@ -14,7 +14,8 @@ import org.apache.spark.storage.{BlockId => SparkBlockId, ShuffleBlockId => Spar
 
 class UcxShuffleClient(val transport: UcxShuffleTransport, mapId2PartitionId: Map[Long, Int]) extends BlockStoreClient with Logging {
 
-  private def getBlockFromDpu(shuffleId: Int, mapId: Long, reducePartitionId: Int, blockId: String, listener: BlockFetchingListener): Unit = {
+  private def getBlockFromDpu(shuffleId: Int, mapId: Long, reducePartitionId: Int,
+                              blockId: String, listener: BlockFetchingListener, execId: String): Unit = {
     val ucxTransport: UcxShuffleTransport = transport
 
     logDebug(s"LEO UcxShuffleBlockResolver getBlockData from DPU shuffleId $shuffleId mapId $mapId reduceId $reducePartitionId partId ${mapId2PartitionId(mapId)}")
@@ -38,7 +39,7 @@ class UcxShuffleClient(val transport: UcxShuffleTransport, mapId2PartitionId: Ma
           }
         })
     }
-    val req = ucxTransport.fetchBlock(2, shuffleId, mapId, reducePartitionId, resultBufferAllocator, callbacks)
+    val req = ucxTransport.fetchBlock(execId.toLong, shuffleId, mapId, reducePartitionId, resultBufferAllocator, callbacks)
 
     while (!fetchDone) {
       ucxTransport.progress()
@@ -48,7 +49,7 @@ class UcxShuffleClient(val transport: UcxShuffleTransport, mapId2PartitionId: Ma
   override def fetchBlocks(host: String, port: Int, execId: String, blockIds: Array[String],
                            listener: BlockFetchingListener,
                            downloadFileManager: DownloadFileManager): Unit = {
-    logDebug(s"LEO entered fetchBlocks ($host:$port)")
+    logDebug(s"LEO entered fetchBlocks ($host:$port) execId $execId")
     if (blockIds.length > transport.ucxShuffleConf.maxBlocksPerRequest) {
       val (b1, b2) = blockIds.splitAt(blockIds.length / 2)
       fetchBlocks(host, port, execId, b1, listener, downloadFileManager)
@@ -62,7 +63,7 @@ class UcxShuffleClient(val transport: UcxShuffleTransport, mapId2PartitionId: Ma
     for (i <- blockIds.indices) {
       val blockId = SparkBlockId.apply(blockIds(i)).asInstanceOf[SparkShuffleBlockId]
       // val buffer = getBlockFromDpu(blockId.shuffleId, blockId.mapId, blockId.reduceId)
-      getBlockFromDpu(blockId.shuffleId, blockId.mapId, blockId.reduceId, blockIds(i), listener)
+      getBlockFromDpu(blockId.shuffleId, blockId.mapId, blockId.reduceId, blockIds(i), listener, execId)
       // listener.onBlockFetchSuccess(blockIds(i), new NioManagedBuffer(buffer) {
       //     override def release: ManagedBuffer = {
       //       memBlock.close()
