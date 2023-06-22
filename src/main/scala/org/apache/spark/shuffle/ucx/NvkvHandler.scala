@@ -35,8 +35,8 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
   private var nvkvSize = 0L
   private var partitionSize = 0L
   private var packData: ByteBuffer = null
-  val numOfMappers  = SparkEnv.get.conf.getInt("spark.nvkv.mappers", 1)
-  val numOfReducers = SparkEnv.get.conf.getInt("spark.nvkv.reducers", 1)
+  val numOfMappers  = SparkEnv.get.conf.getInt("spark.groupByTest.numMappers", 1)
+  val numOfReducers = SparkEnv.get.conf.getInt("spark.groupByTest.numReducers", 1)
   private var reducePartitions: Array[Array[ReducePartition]] = Array.ofDim[ReducePartition](numOfMappers, numOfReducers)
   val pciAddress = "0000:41:00.0"
   val logEnabled = false

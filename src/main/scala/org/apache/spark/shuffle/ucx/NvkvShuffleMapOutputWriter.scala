@@ -98,10 +98,12 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
   private def getBlockOffset = {
     //TODO - add executer partition offset
     val numShuffles = 1
-    val numOfMappers = SparkEnv.get.conf.getInt("spark.nvkv.mappers", 1)
+    val numOfMappers = SparkEnv.get.conf.getInt("spark.groupByTest.numMappers", 1)
     val shuffleBlockSize = nvkvHandler.getPartitionSize / numShuffles
     val mapBlockSize = shuffleBlockSize / numOfMappers
-    (shuffleId * shuffleBlockSize) + (mapId * mapBlockSize)
+    val r = mapBlockSize % 512;
+    val alignedMapBlockSize = if (r == 0) {mapBlockSize - (r)} else mapBlockSize
+    (shuffleId * shuffleBlockSize) + (mapId * alignedMapBlockSize)
   }
 
   @throws[IOException]
