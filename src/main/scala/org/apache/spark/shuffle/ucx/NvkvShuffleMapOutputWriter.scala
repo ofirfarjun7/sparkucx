@@ -87,10 +87,6 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
   private var lastPartitionId = -1
   private var currChannelPosition = 0L
   private var bytesWrittenToMergedFile = 0L
-  final private var outputFile: File = blockResolver.getDataFile(shuffleId, mapId)
-  private var outputTempFile: File = null
-  private var outputFileStream: FileOutputStream = null
-  private var outputFileChannel: FileChannel = null
   private var outputBufferedFileStream: BufferedOutputStream = null
   private var nvkvHandler: NvkvHandler = ucxTransport.getNvkvHandler
   private var executerId = SparkEnv.get.blockManager.blockManagerId.executorId.toLong
@@ -111,9 +107,7 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     NvkvShuffleMapOutputWriter.log.info("NvkvShuffleMapOutputWriter getPartitionWriter " + reducePartitionId)
     if (reducePartitionId <= lastPartitionId) throw new IllegalArgumentException("Partitions should be requested in increasing order.")
     lastPartitionId = reducePartitionId
-    if (outputTempFile == null) outputTempFile = Utils.tempFileWith(outputFile)
-    if (outputFileChannel != null) currChannelPosition = outputFileChannel.position
-    else currChannelPosition = getBlockOffset + bytesWrittenToMergedFile + totalPartitionsPadding
+    currChannelPosition = getBlockOffset + bytesWrittenToMergedFile + totalPartitionsPadding
     NvkvShuffleMapOutputWriter.log.info("NvkvShuffleMapOutputWriter currChannelPosition " + currChannelPosition)
     new NvkvShufflePartitionWriter(reducePartitionId)
   }
@@ -125,10 +119,6 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     // exception if it is incorrect. The position will not be increased to the expected length
     // after calling transferTo in kernel version 2.6.32. This issue is described at
     // https://bugs.openjdk.java.net/browse/JDK-7052359 and SPARK-3948.
-    if (outputFileChannel != null && outputFileChannel.position != bytesWrittenToMergedFile) throw new IOException("Current position " + outputFileChannel.position + " does not equal expected " + "position " + bytesWrittenToMergedFile + " after transferTo. Please check your " + " kernel version to see if it is 2.6.32, as there is a kernel bug which will lead " + "to unexpected behavior when using transferTo. You can set " + "spark.file.transferTo=false to disable this NIO feature.")
-    cleanUp()
-    val resolvedTmp = if (outputTempFile != null && outputTempFile.isFile) outputTempFile
-    else null
 
     var blockOffset = getBlockOffset;
 
@@ -154,30 +144,22 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     ucxTransport.commitBlock(executerId, resultBufferAllocator, packMapperData)
     NvkvShuffleMapOutputWriter.log.info("Writing shuffle index file for mapId " + mapId + " with lengths " + partitionLengths(0) + " " + partitionLengths(1))
     ucxTransport.progress()
-    blockResolver.writeIndexFileAndCommit(shuffleId, mapId, partitionLengths, resolvedTmp)
     partitionLengths
   }
 
   @throws[IOException]
   override def abort(error: Throwable): Unit = {
     cleanUp()
-    if (outputTempFile != null && outputTempFile.exists && !outputTempFile.delete) {
-    }
   }
 
   @throws[IOException]
   private def cleanUp(): Unit = {
     NvkvShuffleMapOutputWriter.log.info("NvkvShuffleMapOutputWriter cleanUp")
-    if (outputBufferedFileStream != null) outputBufferedFileStream.close()
-    if (outputFileChannel != null) outputFileChannel.close()
-    if (outputFileStream != null) outputFileStream.close()
   }
 
   @throws[IOException]
   private def initStream(): Unit = {
     NvkvShuffleMapOutputWriter.log.info(s"NvkvShuffleMapOutputWriter initStream bufferSize $bufferSize")
-    if (outputFileStream == null) outputFileStream = new FileOutputStream(outputTempFile, true)
-    if (outputBufferedFileStream == null) outputBufferedFileStream = new BufferedOutputStream(outputFileStream, bufferSize)
   }
 
   @throws[IOException]
@@ -185,7 +167,6 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     NvkvShuffleMapOutputWriter.log.info("NvkvShuffleMapOutputWriter initChannel")
     // This file needs to opened in append mode in order to work around a Linux kernel bug that
     // affects transferTo; see SPARK-3948 for more details.
-    if (outputFileChannel == null) outputFileChannel = new FileOutputStream(outputTempFile, true).getChannel
   }
 
   private class NvkvShufflePartitionWriter (private val partitionId: Int) extends ShufflePartitionWriter {
@@ -197,7 +178,6 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     override def openStream: OutputStream = {
       NvkvShuffleMapOutputWriter.log.info("NvkvShufflePartitionWriter openStream " + partitionId)
       if (partStream == null) {
-        if (outputFileChannel != null) throw new IllegalStateException("Requested an output channel for a previous write but" + " now an output stream has been requested. Should not be using both channels" + " and streams to write.")
         initStream()
         partStream = new PartitionWriterStream(partitionId)
       }
@@ -241,7 +221,6 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     override def write(b: Int): Unit = {
       NvkvShuffleMapOutputWriter.log.info("PartitionWriterStream write1 " + b)
       verifyNotClosed()
-      outputBufferedFileStream.write(b)
       count += 1
     }
 
@@ -251,7 +230,6 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
       NvkvShuffleMapOutputWriter.log.info(s"PartitionWriterStream write2 $shuffleId,$mapId,$partitionId buf $buf pos $pos length $length offset $offset")
       nvkvHandler.write(shuffleId, mapId, partitionId, buf, length, offset)
       verifyNotClosed()
-      outputBufferedFileStream.write(buf, pos, length)
       count += length
     }
 
@@ -278,13 +256,12 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     @throws[IOException]
     def getCount: Long = {
       NvkvShuffleMapOutputWriter.log.info("PartitionWriterChannel getCount " + partitionId)
-      val writtenPosition = outputFileChannel.position
-      writtenPosition - currChannelPosition
+      0
     }
 
     override def channel: WritableByteChannel = {
       NvkvShuffleMapOutputWriter.log.info("PartitionWriterChannel channel " + partitionId)
-      outputFileChannel
+      null
     }
 
     @throws[IOException]
