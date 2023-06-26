@@ -23,9 +23,9 @@ object NvkvHandler {
 }
 
 class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: Long) extends Logging {
-  final private val nvkvBufferSize = 8192
+  final private val nvkvBufferSize = 41943040
   // TODO - read in chunks
-  final private val nvkvReadBufferSize = 31457280
+  final private val nvkvReadBufferSize = 41943040
   final private val alignment = 512
   private var nvkvWriteBuffer: ByteBuffer = null
   private var nvkvReadBuffer: ByteBuffer = null
@@ -66,7 +66,7 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
   this.nvkv = Nvkv.open(ds.slice(0, 1), Nvkv.LOCAL|Nvkv.REMOTE)
   this.nvkvWriteBuffer = nvkv.alloc(nvkvBufferSize)
   this.nvkvReadBuffer = nvkv.alloc(nvkvReadBufferSize)
-  this.nvkvRemoteReadBuffer = nvkv.alloc(nvkvReadBufferSize)
+  this.nvkvRemoteReadBuffer = nvkv.alloc(16*nvkvReadBufferSize)
   this.partitionSize = this.nvkvSize / numOfPartitions
 
   var nvkvCtx: Array[Byte] = ByteBuffer.wrap(this.nvkv.export()).order(ByteOrder.nativeOrder()).array()
@@ -83,7 +83,7 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
   packData.putInt(nvkvCtxSize)
   packData.put(nvkvCtx)
   packData.putLong(UnsafeUtils.getAdress(this.nvkvRemoteReadBuffer))
-  packData.putLong(1 * nvkvReadBufferSize)
+  packData.putLong(16 * nvkvReadBufferSize)
   packData.putInt(nvkvReadBufferSize)
   packData.putInt(mkeyBuffer.capacity())
   packData.put(mkeyBuffer)

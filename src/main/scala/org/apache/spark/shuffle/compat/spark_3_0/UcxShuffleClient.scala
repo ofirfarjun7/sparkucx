@@ -28,13 +28,14 @@ class UcxShuffleClient(val transport: UcxShuffleTransport, mapId2PartitionId: Ma
         val memBlock = result.getData
         val buffer = UnsafeUtils.getByteBufferView(memBlock.address, memBlock.size.toInt)
         logDebug(s"LEO Fetched block from DPU ${memBlock.size.toInt}")
-        var remoteResultBuffer = ByteBuffer.allocate(memBlock.size.toInt);
-        remoteResultBuffer.put(buffer)
-        remoteResultBuffer.flip()
-        memBlock.close()
+        // var remoteResultBuffer = ByteBuffer.allocate(memBlock.size.toInt);
+        // remoteResultBuffer.put(buffer)
+        // remoteResultBuffer.flip()
+        // memBlock.close()
         fetchDone = true
-        listener.onBlockFetchSuccess(blockId, new NioManagedBuffer(remoteResultBuffer) {
+        listener.onBlockFetchSuccess(blockId, new NioManagedBuffer(buffer) {
           override def release: ManagedBuffer = {
+            memBlock.close()
             this
           }
         })
