@@ -57,11 +57,13 @@ class UcxShuffleBlockResolver(ucxShuffleManager: CommonUcxShuffleManager)
         memBlock.close()
         fetchDone = true
     }
-    val req = ucxTransport.fetchBlock(1, shuffleId, mapId, reducePartitionId, resultBufferAllocator, callbacks)
 
-    while (!fetchDone) {
-      ucxTransport.progress()
-    }
+    //TODO - adapt code to new fetch block async method
+    // val req = ucxTransport.fetchBlock(1, shuffleId, mapId, reducePartitionId, resultBufferAllocator, callbacks)
+
+    // while (!fetchDone) {
+    //   ucxTransport.progress()
+    // }
     
     remoteResultBuffer
   }

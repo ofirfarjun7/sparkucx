@@ -53,10 +53,10 @@ class UcxStats extends OperationStats {
 }
 
 case class UcxShuffleBlockId(shuffleId: Int, mapId: Int, reduceId: Int) extends BlockId {
-  override def serializedSize: Int = 8
+  override def serializedSize: Int = 12
 
   override def serialize(byteBuffer: ByteBuffer): Unit = {
-    //byteBuffer.putInt(shuffleId)
+    byteBuffer.putInt(shuffleId)
     byteBuffer.putInt(mapId)
     byteBuffer.putInt(reduceId)
   }
@@ -64,7 +64,7 @@ case class UcxShuffleBlockId(shuffleId: Int, mapId: Int, reduceId: Int) extends 
 
 object UcxShuffleBlockId {
   def deserialize(byteBuffer: ByteBuffer): UcxShuffleBlockId = {
-    //val shuffleId = byteBuffer.getInt
+    val shuffleId = byteBuffer.getInt
     val mapId = byteBuffer.getInt
     val reduceId = byteBuffer.getInt
     UcxShuffleBlockId(0, mapId, reduceId)
@@ -288,13 +288,6 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
     logDebug(s"LEO commitBlock threadId ${Thread.currentThread().getId}")
     allocatedClientWorkers((Thread.currentThread().getId % allocatedClientWorkers.length).toInt)
       .commitBlock(executorId, nvkvHandler, resultBufferAllocator, packMapperData, (result: OperationResult) => {logDebug("Init executer in UCX")})
-  }
-
-  def fetchBlock(executorId: ExecutorId, shuffleId: Int, mapId: Long, reducePartitionId: Int,
-                 resultBufferAllocator: BufferAllocator, callbacks: Seq[OperationCallback]): Request = {
-    logDebug(s"LEO fetchBlock threadId ${Thread.currentThread().getId}")
-    allocatedClientWorkers((Thread.currentThread().getId % allocatedClientWorkers.length).toInt)
-      .fetchBlock(executorId, shuffleId, mapId, reducePartitionId, resultBufferAllocator, callbacks)
   }
 
   // def connectServerWorkers(executorId: ExecutorId, workerAddress: ByteBuffer): Unit = {
