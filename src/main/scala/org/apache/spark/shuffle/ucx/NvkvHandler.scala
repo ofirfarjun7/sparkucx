@@ -78,7 +78,7 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
   val mem: UcpMemory = ucxContext.registerMemory(this.nvkvRemoteReadBuffer)
   var mkeyBuffer: ByteBuffer = null
   mkeyBuffer = mem.getExportedMkeyBuffer()
-  
+
   nvkvLogDebug(s"LEO Try to pack nvkv")
   // nvkvCtx size + nvkvCtx + readBuf + readBuf length + max block size + mkeyBuffer size + mkeyBuffer
   packData = ByteBuffer.allocateDirect(4 + nvkvCtxSize + 8 + 8 + 4 + 4 + mkeyBuffer.capacity()).order(ByteOrder.nativeOrder())
@@ -103,16 +103,17 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
       case e: NvkvException => logDebug("LEO NvkvHandler: Failed to connect to remote nvkv received from DPU")
     }
   }
-  
-  private class Request(private var length: Long, private var offset: Long) {
+
+  private class Request(private var buffer: ByteBuffer, private var length: Long, private var offset: Long) {
     def getLength: Long = this.length
     def getOffset: Long = this.offset
+    def getBuffer: ByteBuffer = buffer
   }
 
-  private class WriteRequest(private var data: ByteBuffer, length: Long, offset: Long) extends Request(length, offset) {
+  private class WriteRequest(private var source: ByteBuffer, length: Long, offset: Long) extends Request(source, length, offset) {
   }
 
-  private class ReadRequest(private var recvBuffer: ByteBuffer, length: Long, offset: Long) extends Request(length, offset) {
+  private class ReadRequest(private var dest: ByteBuffer, length: Long, offset: Long) extends Request(dest, length, offset) {
   }
 
   private class ReducePartition(private var offset: Long, private var length: Long) {
@@ -161,7 +162,7 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
   private def post(request: ReadRequest) = {
     nvkvLogDebug(s"LEO NvkvHandler post read")
     val completion = new ReadCompletion(request)
-    try nvkv.postRead(this.ds_idx, this.nvkvReadBuffer, 0, request.getLength, request.getOffset, new Nvkv.Context.Callback() {
+    try nvkv.postRead(this.ds_idx, request.getBuffer, 0, request.getLength, request.getOffset, new Nvkv.Context.Callback() {
       def done(): Unit = {
         completion.setComplete(true)
         nvkvLogDebug(s"LEO NvkvHandler post completed!")
@@ -192,24 +193,26 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
 
   def read(length: Int, offset: Long): ByteBuffer = {
     val alignedLength = getAlignedLength(length)
+    val readBuffer = nvkv.alloc(alignedLength)
     nvkvLogDebug(s"LEO NvkvHandler read size aligned " + alignedLength)
-    val readRequest = new ReadRequest(nvkvReadBuffer, alignedLength, offset)
+    val readRequest = new ReadRequest(readBuffer, alignedLength, offset)
     val completion = post(readRequest)
     pollCompletion(completion)
     nvkvLogDebug(s"LEO NvkvHandler read complete")
-    nvkvReadBuffer.rewind()
-
-    var clone: ByteBuffer = ByteBuffer.allocateDirect(length)
-    nvkvReadBuffer.limit(length)
-    clone.put(nvkvReadBuffer)
-    clone.rewind()
-    clone.limit(length)
-    nvkvReadBuffer.limit(nvkvReadBuffer.capacity())
-    nvkvReadBuffer.rewind()
-    clone
+    readBuffer
+    //    nvkvReadBuffer.rewind()
+    //
+    //    var clone: ByteBuffer = ByteBuffer.allocateDirect(length)
+    //    nvkvReadBuffer.limit(length)
+    //    clone.put(nvkvReadBuffer)
+    //    clone.rewind()
+    //    clone.limit(length)
+    //    nvkvReadBuffer.limit(nvkvReadBuffer.capacity())
+    //    nvkvReadBuffer.rewind()
+    //    clone
   }
 
-  def write(shuffleId: Int, mapId: Long, 
+  def write(shuffleId: Int, mapId: Long,
             reducePartitionId: Int, bytes: Array[Byte], length: Int, offset: Long): Unit = {
     val source: ByteBuffer = ByteBuffer.wrap(bytes)
     var relativeOffset: Long = offset - nvkvWriteBuffer.position()
@@ -254,7 +257,7 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
     (getAlignedLength(bufferPosition) - bufferPosition)
   }
 
-  def commitPartition(start: Long, length: Long, shuffleId: Int, 
+  def commitPartition(start: Long, length: Long, shuffleId: Int,
                       mapId: Long, reducePartitionId: Int): Unit = {
     nvkvLogDebug(s"LEO NvkvHandler commitPartition $shuffleId,$mapId,$reducePartitionId offset $start length $length")
     reducePartitions(mapId.toInt)(reducePartitionId) = new ReducePartition(start, length)
