@@ -81,7 +81,13 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
   
   nvkvLogDebug(s"LEO Try to pack nvkv")
   // nvkvCtx size + nvkvCtx + readBuf + readBuf length + max block size + mkeyBuffer size + mkeyBuffer
-  packData = ByteBuffer.allocateDirect(4 + nvkvCtxSize + 8 + 8 + 4 + 4 + mkeyBuffer.capacity()).order(ByteOrder.nativeOrder())
+  packData = ByteBuffer.allocateDirect(UnsafeUtils.INT_SIZE +  // nvkvCtx size
+                                       nvkvCtxSize +           // nvkvCtx
+                                       UnsafeUtils.LONG_SIZE + // readBuf Address
+                                       UnsafeUtils.LONG_SIZE + // readBuf length
+                                       UnsafeUtils.INT_SIZE +  // max block size
+                                       UnsafeUtils.INT_SIZE +  // readBuffer mkey size
+                                       mkeyBuffer.capacity()).order(ByteOrder.nativeOrder())
   packData.putInt(nvkvCtxSize)
   packData.put(nvkvCtx)
   packData.putLong(UnsafeUtils.getAdress(this.nvkvRemoteReadBuffer))
