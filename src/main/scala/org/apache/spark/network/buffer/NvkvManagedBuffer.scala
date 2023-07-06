@@ -5,8 +5,9 @@ import org.apache.commons.lang3.builder.{ToStringBuilder, ToStringStyle}
 
 import java.io.IOException
 import java.nio.ByteBuffer
+import org.apache.spark.internal.Logging
 
-class NvkvManagedBuffer(val buffer: ByteBuffer) extends ManagedBuffer {
+class NvkvManagedBuffer(val buffer: ByteBuffer) extends ManagedBuffer with Logging {
 
   private var buf: ByteBuffer = buffer
 
