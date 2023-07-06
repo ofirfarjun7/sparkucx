@@ -1,6 +1,7 @@
 package org.apache.spark.shuffle.ucx
 
 import java.util.zip.CRC32
+import scala.collection.mutable.ListBuffer
 import org.openucx.jnvkv._
 import org.openucx.jucx.ucp._
 import org.openucx.jucx.UcxException
@@ -31,6 +32,8 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
   final private val alignment = 512
   private var nvkvWriteBuffer: ByteBuffer = null
   private var nvkvReadBuffer: ByteBuffer = null
+  private val nvkvReadBufferMpoolSize: Int = 64
+  private var readBufferMpool: ListBuffer[ByteBuffer] = ListBuffer()
   private var nvkvRemoteReadBuffer: ByteBuffer = null
   private var nvkv: Nvkv.Context = null
   private var ds_idx = 0
@@ -99,6 +102,30 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
 
   nvkvLogDebug(s"LEO packedNvkv nvkvCtx ${nvkvCtx} nvkvCtxSize ${nvkvCtxSize} bb ${UnsafeUtils.getAdress(this.nvkvRemoteReadBuffer)}")
   nvkvLogDebug(s"LEO packedNvkv packData capacity ${mkeyBuffer.capacity()} packData limit ${mkeyBuffer.limit()}")
+
+  def getReadBuffer(length: Int): ByteBuffer = {
+    var res_bb: ByteBuffer = null
+    if (nvkvReadBuffer == null) {
+      val bbSize = (length * 1.2).toInt
+      nvkvReadBuffer = nvkv.alloc(nvkvReadBufferMpoolSize * bbSize)
+
+      var pos = 0
+      while (pos < nvkvReadBuffer.capacity()) {
+        var bb: ByteBuffer = nvkvReadBuffer.slice()
+        bb.limit(bbSize)
+        pos += bbSize
+        nvkvReadBuffer.position(pos)
+      }
+
+      nvkvReadBuffer.position(0)
+    }
+
+    if (readBufferMpool.length > 0) {
+      res_bb = readBufferMpool.remove(0)
+    }
+
+    res_bb
+  }
 
   def pack: ByteBuffer = this.packData
 
