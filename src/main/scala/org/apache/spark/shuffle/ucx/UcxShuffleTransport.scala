@@ -273,9 +273,10 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
    */
   override def fetchBlocksByBlockIds(executorId: ExecutorId, blockIds: Seq[BlockId],
                                      resultBufferAllocator: BufferAllocator,
-                                     callbacks: Seq[OperationCallback]): Seq[Request] = {
+                                     callbacks: Seq[OperationCallback],
+                                     amRecvStartCb: () => Unit): Seq[Request] = {
     allocatedClientWorkers((Thread.currentThread().getId % allocatedClientWorkers.length).toInt)
-      .fetchBlocksByBlockIds(executorId, blockIds, resultBufferAllocator, callbacks)
+      .fetchBlocksByBlockIds(executorId, blockIds, resultBufferAllocator, callbacks, amRecvStartCb)
   }
 
   def initExecuter(executorId: ExecutorId, resultBufferAllocator: BufferAllocator): Request = {

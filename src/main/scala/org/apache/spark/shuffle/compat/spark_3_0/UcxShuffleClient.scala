@@ -35,7 +35,6 @@ class UcxShuffleClient(val transport: UcxShuffleTransport, mapId2PartitionId: Ma
       ucxBlockIds(i) = UcxShuffleBlockId(blockId.shuffleId, mapId2PartitionId(blockId.mapId), blockId.reduceId)
       callbacks(i) = (result: OperationResult) => {
         val memBlock = result.getData
-        receive = receive + 1
         val buffer = UnsafeUtils.getByteBufferView(memBlock.address, memBlock.size.toInt)
         listener.onBlockFetchSuccess(blockIds(i), new NioManagedBuffer(buffer) {
           override def release: ManagedBuffer = {
@@ -45,7 +44,8 @@ class UcxShuffleClient(val transport: UcxShuffleTransport, mapId2PartitionId: Ma
         })
       }
       val resultBufferAllocator = (size: Long) => transport.hostBounceBufferMemoryPool.get(size)
-      transport.fetchBlocksByBlockIds(execId.toLong, Array(ucxBlockIds(i)), resultBufferAllocator, Array(callbacks(i)))
+      transport.fetchBlocksByBlockIds(execId.toLong, Array(ucxBlockIds(i)), resultBufferAllocator, 
+        Array(callbacks(i)), () => {receive = receive + 1})
     }
 
     while (send != receive) {

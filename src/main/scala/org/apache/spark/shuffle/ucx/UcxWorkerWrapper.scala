@@ -62,7 +62,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
   extends Closeable with Logging {
 
   private final val connections =  new TrieMap[transport.ExecutorId, UcpEndpoint]
-  private val requestData = new TrieMap[Int, (Seq[OperationCallback], UcxRequest, transport.BufferAllocator)]
+  private val requestData = new TrieMap[Int, (Seq[OperationCallback], () => Unit, UcxRequest, transport.BufferAllocator)]
   private val tag = new AtomicInteger(Random.nextInt())
   private val flushRequests = new ConcurrentLinkedQueue[UcpRequest]()
 
@@ -105,10 +105,11 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
         throw new UcxException(s"No data for tag $i.")
       }
 
-      val (callbacks, request, allocator) = data.get
+      val (callbacks, amRecvStartCb, request, allocator) = data.get
       val stats = request.getStats.get.asInstanceOf[UcxStats]
       stats.receiveSize = ucpAmData.getLength
       var offset = 0
+      amRecvStartCb()
       val refCounts = new AtomicInteger(1)
       if (ucpAmData.isDataValid) {
         request.completed = true
@@ -253,7 +254,8 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
 
   def fetchBlocksByBlockIds(executorId: transport.ExecutorId, blockIds: Seq[BlockId],
                             resultBufferAllocator: transport.BufferAllocator,
-                            callbacks: Seq[OperationCallback]): Seq[Request] = {
+                            callbacks: Seq[OperationCallback],
+                            amRecvStartCb: () => Unit): Seq[Request] = {
     val startTime = System.nanoTime()
     val headerSize = UnsafeUtils.INT_SIZE
     val ep = getConnection(executorId)
@@ -262,8 +264,8 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
       headerSize + UnsafeUtils.INT_SIZE * blockIds.length) {
       val (b1, b2) = blockIds.splitAt(blockIds.length / 2)
       val (c1, c2) = callbacks.splitAt(callbacks.length / 2)
-      val r1 = fetchBlocksByBlockIds(executorId, b1, resultBufferAllocator, c1)
-      val r2 = fetchBlocksByBlockIds(executorId, b2, resultBufferAllocator, c2)
+      val r1 = fetchBlocksByBlockIds(executorId, b1, resultBufferAllocator, c1, amRecvStartCb)
+      val r2 = fetchBlocksByBlockIds(executorId, b2, resultBufferAllocator, c2, amRecvStartCb)
       return r1 ++ r2
     }
 
@@ -274,7 +276,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
     blockIds.foreach(b => b.serialize(buffer))
 
     val request = new UcxRequest(null, new UcxStats())
-    requestData.put(t, (callbacks, request, resultBufferAllocator))
+    requestData.put(t, (callbacks, amRecvStartCb, request, resultBufferAllocator))
 
     buffer.rewind()
     val address = UnsafeUtils.getAdress(buffer)
