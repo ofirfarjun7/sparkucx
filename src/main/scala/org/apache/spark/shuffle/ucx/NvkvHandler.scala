@@ -43,17 +43,17 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
   val numOfMappers  = SparkEnv.get.conf.getInt("spark.groupByTest.numMappers", 1)
   val numOfReducers = SparkEnv.get.conf.getInt("spark.groupByTest.numReducers", 1)
   private var reducePartitions: Array[Array[ReducePartition]] = Array.ofDim[ReducePartition](numOfMappers, numOfReducers)
-  val pciAddress = "0000:41:00.0"
-  val logEnabled = false
+  val pciAddress = "0000:a1:00.0"
+  val logEnabled = SparkEnv.get.conf.getInt("spark.nvkvLogs.enabled", 0)
 
   private def nvkvLogDebug(msg: => String) {
-    if (logEnabled) {
+    if (logEnabled == 1) {
       logDebug(msg)
     }
   }
 
   nvkvLogDebug(s"LEO NvkvHandler constructor")
-  Nvkv.init("mlx5_0", 0, "0x1")
+  Nvkv.init("mlx5_0", logEnabled, "0x1")
   val ds: Array[Nvkv.DataSet] = Nvkv.query()
   var detected = false
 
@@ -205,7 +205,7 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
     if (!(nvkvWriteBufferTmp == nvkvReadBufferTmp)) throw new RuntimeException("Data is corrupted")
   }
 
-  private def getAlignedLength(length: Int) = length + (alignment - (length % alignment))
+  private def getAlignedLength(length: Int) = if (length % 512 == 0) {length} else {length + (alignment - (length % alignment))}
 
   def read(length: Int, offset: Long): ByteBuffer = {
     val alignedLength = getAlignedLength(length)
