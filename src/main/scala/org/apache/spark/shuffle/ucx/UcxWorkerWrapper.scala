@@ -108,7 +108,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
       val (callbacks, amRecvStartCb, request, allocator) = data.get
       val stats = request.getStats.get.asInstanceOf[UcxStats]
       stats.receiveSize = ucpAmData.getLength
-      var offset = 0
+
       amRecvStartCb()
       val refCounts = new AtomicInteger(1)
       if (ucpAmData.isDataValid) {
@@ -116,7 +116,6 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
         stats.endTime = System.nanoTime()
         logDebug(s"Received block with length ${ucpAmData.getLength} in ${stats.getElapsedTimeNs} ns")
 
-        val blockSize = headerBuffer.getInt
         if (callbacks(0) != null) {
           callbacks(0).onComplete(new OperationResult {
             override def getStatus: OperationStatus.Value = OperationStatus.SUCCESS
@@ -125,9 +124,8 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
 
             override def getStats: Option[OperationStats] = Some(stats)
 
-            override def getData: MemoryBlock = new UcxAmDataMemoryBlock(ucpAmData, offset, stats.receiveSize, refCounts)
+            override def getData: MemoryBlock = new UcxAmDataMemoryBlock(ucpAmData, 0, stats.receiveSize, refCounts)
           })
-          offset += blockSize
         }
         if (callbacks.isEmpty) UcsConstants.STATUS.UCS_OK else UcsConstants.STATUS.UCS_INPROGRESS
 
@@ -135,6 +133,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
         logDebug(s"LEO Received RNDV rts Length: ${stats.receiveSize}")
         val mem = allocator(ucpAmData.getLength)
         stats.amHandleTime = System.nanoTime()
+
         request.setRequest(worker.recvAmDataNonBlocking(ucpAmData.getDataHandle, mem.address, ucpAmData.getLength,
             new UcxCallback() {
               override def onSuccess(r: UcpRequest): Unit = {
@@ -144,7 +143,6 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
                 logDebug(s"Received rndv data of size: ${mem.size} for tag $i in " +
                   s"${stats.getElapsedTimeNs} ns " +
                   s"time from amHandle: ${System.nanoTime() - stats.amHandleTime} ns")
-                val blockSize = headerBuffer.getInt
                   callbacks(0).onComplete(new OperationResult {
                     override def getStatus: OperationStatus.Value = OperationStatus.SUCCESS
 
@@ -152,10 +150,8 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
 
                     override def getStats: Option[OperationStats] = Some(stats)
 
-                    override def getData: MemoryBlock = new UcxRefCountMemoryBlock(mem, offset, stats.receiveSize, refCounts)
+                    override def getData: MemoryBlock = new UcxRefCountMemoryBlock(mem, 0, stats.receiveSize, refCounts)
                   })
-                  offset += blockSize
-
               }
             }, UcsConstants.MEMORY_TYPE.UCS_MEMORY_TYPE_HOST))
         UcsConstants.STATUS.UCS_OK
