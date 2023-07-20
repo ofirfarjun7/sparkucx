@@ -27,8 +27,8 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
   final private val nvkvBufferSize = 41943040
   // TODO - read in chunks
   final private val nvkvReadBufferSize = 41943040
-  final private val nvkvRemoteReadBufferSize: Long = 1024*1024*5
-  final private val nvkvNumOfReadBuffers: Long = 256
+  final private val nvkvRemoteReadBufferSize: Long = 1024*1024*43
+  final private val nvkvNumOfReadBuffers: Long = 32
   final private val alignment = 512
   private var nvkvWriteBuffer: ByteBuffer = null
   private var nvkvReadBuffer: ByteBuffer = null
@@ -272,10 +272,24 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
 
   def commitPartition(start: Long, length: Long, shuffleId: Int, 
                       mapId: Long, reducePartitionId: Int): Unit = {
-    nvkvLogDebug(s"LEO NvkvHandler commitPartition $shuffleId,$mapId,$reducePartitionId offset $start length $length")
+    nvkvLogDebug.err.println(s"LEO NvkvHandler commitPartition $shuffleId,$mapId,$reducePartitionId offset $start length $length")
     reducePartitions(mapId.toInt)(reducePartitionId) = new ReducePartition(start, length)
   }
 
-  def getPartitonOffset(shuffleId: Int, mapId: Long, reducePartitionId: Int): Long = this.reducePartitions(mapId.toInt)(reducePartitionId).getOffset
-  def getPartitonLength(shuffleId: Int, mapId: Long, reducePartitionId: Int): Long = this.reducePartitions(mapId.toInt)(reducePartitionId).getLength
+  def getPartitonOffset(shuffleId: Int, mapId: Long, reducePartitionId: Int): Long = {
+    nvkvLogDebug.err.println(s"LEO NvkvHandler getPartitionOffset $shuffleId,$mapId,$reducePartitionId")
+    if (this.reducePartitions(mapId.toInt)(reducePartitionId) == null) {
+      0
+    } else {
+      this.reducePartitions(mapId.toInt)(reducePartitionId).getOffset
+    }
+  }
+  def getPartitonLength(shuffleId: Int, mapId: Long, reducePartitionId: Int): Long = {
+    nvkvLogDebug.err.println(s"LEO NvkvHandler getPartitionOffset $shuffleId,$mapId,$reducePartitionId")
+    if (this.reducePartitions(mapId.toInt)(reducePartitionId) == null) {
+      0
+    } else {
+      this.reducePartitions(mapId.toInt)(reducePartitionId).getLength
+    }
+  }
 }
