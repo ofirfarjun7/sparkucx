@@ -272,12 +272,12 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
 
   def commitPartition(start: Long, length: Long, shuffleId: Int, 
                       mapId: Long, reducePartitionId: Int): Unit = {
-    nvkvLogDebug.err.println(s"LEO NvkvHandler commitPartition $shuffleId,$mapId,$reducePartitionId offset $start length $length")
+    nvkvLogDebug(s"LEO NvkvHandler commitPartition $shuffleId,$mapId,$reducePartitionId offset $start length $length")
     reducePartitions(mapId.toInt)(reducePartitionId) = new ReducePartition(start, length)
   }
 
   def getPartitonOffset(shuffleId: Int, mapId: Long, reducePartitionId: Int): Long = {
-    nvkvLogDebug.err.println(s"LEO NvkvHandler getPartitionOffset $shuffleId,$mapId,$reducePartitionId")
+    nvkvLogDebug(s"LEO NvkvHandler getPartitionOffset $shuffleId,$mapId,$reducePartitionId")
     if (this.reducePartitions(mapId.toInt)(reducePartitionId) == null) {
       0
     } else {
@@ -285,7 +285,7 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
     }
   }
   def getPartitonLength(shuffleId: Int, mapId: Long, reducePartitionId: Int): Long = {
-    nvkvLogDebug.err.println(s"LEO NvkvHandler getPartitionOffset $shuffleId,$mapId,$reducePartitionId")
+    nvkvLogDebug(s"LEO NvkvHandler getPartitionOffset $shuffleId,$mapId,$reducePartitionId")
     if (this.reducePartitions(mapId.toInt)(reducePartitionId) == null) {
       0
     } else {
