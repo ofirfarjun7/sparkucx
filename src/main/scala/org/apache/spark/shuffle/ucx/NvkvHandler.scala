@@ -70,8 +70,9 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
   nvkvLogDebug(s"LEO nvkv ds_id ${this.ds_idx}")
   this.nvkv = Nvkv.open(ds.slice(0, 1), Nvkv.LOCAL|Nvkv.REMOTE)
   this.nvkvWriteBuffer = nvkv.alloc(nvkvBufferSize)
-  this.nvkvReadBuffer = nvkv.alloc(nvkvReadBufferSize)
+  // this.nvkvReadBuffer = nvkv.alloc(nvkvReadBufferSize)
   this.nvkvRemoteReadBuffer = nvkv.alloc(nvkvNumOfReadBuffers*nvkvRemoteReadBufferSize)
+  this.nvkvSize = ds(0).size
   this.partitionSize = this.nvkvSize / numOfPartitions
 
   var nvkvCtx: Array[Byte] = ByteBuffer.wrap(this.nvkv.export()).order(ByteOrder.nativeOrder()).array()
