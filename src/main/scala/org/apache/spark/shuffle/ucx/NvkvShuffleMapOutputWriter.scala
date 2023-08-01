@@ -106,7 +106,7 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     val shuffleBlockSize = nvkvHandler.getPartitionSize / numShuffles
     val mapBlockSize = shuffleBlockSize / numOfMappers
     val r = mapBlockSize % 512;
-    val alignedMapBlockSize = if (r == 0) {mapBlockSize - (r)} else mapBlockSize
+    val alignedMapBlockSize = if (r != 0) {mapBlockSize - (r)} else mapBlockSize
     (shuffleId * shuffleBlockSize) + (mapId * alignedMapBlockSize)
   }
 
