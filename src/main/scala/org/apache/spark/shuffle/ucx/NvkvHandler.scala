@@ -158,6 +158,14 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
 
   private def post(request: WriteRequest) = {
     nvkvLogDebug(s"LEO NvkvHandler post write")
+    if (request.getOffset % 512 != 0) {
+      throw new IllegalArgumentException(s"write Illegal offset ${request.getOffset}")
+    }
+    
+    if (request.getLength % 512 != 0) {
+      throw new IllegalArgumentException(s"write Illegal length ${request.getLength}")
+    }
+
     try nvkv.postWrite(request.getDsIdx, this.nvkvWriteBuffer, 0, request.getLength, request.getOffset, new Nvkv.Context.Callback() {
       def done(): Unit = {
         request.setComplete()
