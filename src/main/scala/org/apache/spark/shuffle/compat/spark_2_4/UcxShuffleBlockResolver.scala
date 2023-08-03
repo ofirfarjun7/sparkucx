@@ -19,6 +19,7 @@ class UcxShuffleBlockResolver(ucxShuffleManager: CommonUcxShuffleManager)
    * Mapper commit protocol extension. Register index and data files and publish all needed
    * metadata to driver.
    */
+  // TODO: Entry point for the "init" message to local DPU
   override def writeIndexFileAndCommit(shuffleId: ShuffleId, mapId: Int,
                                        lengths: Array[Long], dataTmp: File): Unit = {
     super.writeIndexFileAndCommit(shuffleId, mapId, lengths, dataTmp)

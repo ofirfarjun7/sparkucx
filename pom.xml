@@ -96,7 +96,17 @@ See file LICENSE for terms.
     <dependency>
       <groupId>org.openucx</groupId>
       <artifactId>jucx</artifactId>
-      <version>1.13.1</version>
+      <version>1.16.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.openucx</groupId>
+      <artifactId>nvkv</artifactId>
+      <version>1.0</version>
+  </dependency>
+    <dependency>
+      <groupId>org.ini4j</groupId>
+      <artifactId>ini4j</artifactId>
+      <version>0.5.4</version>
     </dependency>
   </dependencies>
 

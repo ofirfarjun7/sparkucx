@@ -79,7 +79,7 @@ object SerializationUtils {
   }
 
   def serializeInetAddress(address: InetSocketAddress): ByteBuffer = {
-    val hostAddress = new InetSocketAddress(Utils.localCanonicalHostName(), address.getPort)
+    val hostAddress = new InetSocketAddress(address.getHostName, address.getPort)
     val hostString = hostAddress.getHostName.getBytes(StandardCharsets.UTF_8)
     val result = ByteBuffer.allocateDirect(hostString.length + 4)
     result.putInt(hostAddress.getPort)

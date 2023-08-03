@@ -10,7 +10,7 @@ import scala.collection.mutable
 import org.apache.spark.internal.Logging
 import org.apache.spark.rpc._
 import org.apache.spark.shuffle.ucx.rpc.UcxRpcMessages.{ExecutorAdded, IntroduceAllExecutors}
-import org.apache.spark.shuffle.ucx.utils.SerializableDirectBuffer
+import org.apache.spark.shuffle.ucx.utils.{SerializableDirectBuffer, SerializationUtils}
 
 class UcxDriverRpcEndpoint(override val rpcEnv: RpcEnv) extends ThreadSafeRpcEndpoint with Logging {
 
@@ -23,7 +23,8 @@ class UcxDriverRpcEndpoint(override val rpcEnv: RpcEnv) extends ThreadSafeRpcEnd
     ucxWorkerAddress: SerializableDirectBuffer) => {
       // Driver receives a message from executor with it's workerAddress
       // 1. Introduce existing members of a cluster
-      logDebug(s"Received $message")
+      logDebug(s"LEO driver received $message")
+      logDebug(s"LEO ucxWorkerAddress: ${SerializationUtils.deserializeInetAddress(ucxWorkerAddress.value)}")
       if (executorToWorkerAddress.nonEmpty) {
         val msg = IntroduceAllExecutors(executorToWorkerAddress)
         logDebug(s"replying $msg to $executorId")

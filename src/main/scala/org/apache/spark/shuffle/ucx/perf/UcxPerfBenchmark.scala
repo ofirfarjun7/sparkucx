@@ -9,6 +9,7 @@ import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 import java.nio.channels.FileChannel
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicInteger
 import org.apache.commons.cli.{GnuParser, HelpFormatter, Options}
 import org.apache.spark.SparkConf
@@ -129,10 +130,11 @@ object UcxPerfBenchmark extends App with Logging {
     for (_ <- 0 until options.numIterations) {
       for  (b <- blockCollection) {
         requestInFlight.set(options.numOutstanding)
+        val latch = new CountDownLatch(options.numOutstanding)
         for (o <- 0 until options.numOutstanding) {
           val fileIdx = if (options.randOrder) rnd.nextInt(options.files.length) else (b+o) % options.files.length
           val blockIdx = if (options.randOrder) rnd.nextInt(blocksPerFile) else (b+o) % blocksPerFile
-          blocks(o) = UcxShuffleBockId(0, fileIdx, blockIdx)
+          blocks(o) = UcxShuffleBlockId(0, fileIdx, blockIdx)
           callbacks(o) = (result: OperationResult) => {
             result.getData.close()
             val stats = result.getStats.get
@@ -142,12 +144,11 @@ object UcxPerfBenchmark extends App with Logging {
                 (options.blockSize * options.numOutstanding * options.numThreads) /
                   (1024.0 * 1024.0 * (stats.getElapsedTimeNs / 1e9)))
             }
+            latch.countDown()
           }
         }
-        val requests = ucxTransport.fetchBlocksByBlockIds(1, blocks, resultBufferAllocator, callbacks)
-        while (!requests.forall(_.isCompleted)) {
-          ucxTransport.progress()
-        }
+        ucxTransport.fetchBlocksByBlockIds(1, blocks, resultBufferAllocator, callbacks, () => {})
+        latch.await()
       }
     }
     ucxTransport.close()
@@ -179,7 +180,7 @@ object UcxPerfBenchmark extends App with Logging {
     for (fileIdx <- options.files.indices) {
       for (blockIdx <- 0 until (options.numBlocks /  options.files.length)) {
 
-        val blockId = UcxShuffleBockId(0, fileIdx, blockIdx)
+        val blockId = UcxShuffleBlockId(0, fileIdx, blockIdx)
         val block = new Block {
           private val channel = channels(fileIdx)
           private val fileOffset = blockIdx * options.blockSize

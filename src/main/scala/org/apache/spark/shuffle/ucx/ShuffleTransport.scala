@@ -113,10 +113,8 @@ trait ShuffleTransport {
   /**
    * Initialize transport resources. This function should get called after ensuring that SparkConf
    * has the correct configurations since it will use the spark configuration to configure itself.
-   *
-   * @return worker address of current process, to use in [[ addExecutor()]]
    */
-  def init(): ByteBuffer
+  def init(): Unit
 
   /**
    * Close all transport resources
@@ -149,21 +147,4 @@ trait ShuffleTransport {
    * Note: this is a blocking call. On return it's safe to free blocks memory.
    */
   def unregister(blockId: BlockId): Unit
-
-  /**
-   * Batch version of [[ fetchBlocksByBlockIds ]].
-   */
-  def fetchBlocksByBlockIds(executorId: ExecutorId, blockIds: Seq[BlockId],
-                            resultBufferAllocator: BufferAllocator,
-                            callbacks: Seq[OperationCallback]): Seq[Request]
-
-  /**
-   * Progress outstanding operations. This routine is blocking (though may poll for event).
-   * It's required to call this routine within same thread that submitted [[ fetchBlocksByBlockIds ]].
-   *
-   * Return from this method guarantees that at least some operation was progressed.
-   * But not guaranteed that at least one [[ fetchBlocksByBlockIds ]] completed!
-   */
-  def progress(): Unit
-
 }

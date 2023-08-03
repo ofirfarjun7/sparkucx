@@ -25,21 +25,26 @@ class FileBackedMemoryBlock(baseAddress: Long, baseSize: Long, address: Long, si
 abstract class CommonUcxShuffleBlockResolver(ucxShuffleManager: CommonUcxShuffleManager)
   extends IndexShuffleBlockResolver(ucxShuffleManager.conf) {
 
+  logInfo(s"LEO CommonUcxShuffleBlockResolver")
+
   private val openFds = new ConcurrentHashMap[ShuffleId, ConcurrentLinkedQueue[RandomAccessFile]]()
 
   /**
    * Mapper commit protocol extension. Register index and data files and publish all needed
    * metadata to driver.
    */
+  // This is the entry point to send the "init to local DPU" message
   def writeIndexFileAndCommitCommon(shuffleId: ShuffleId, mapId: Int,
                                     lengths: Array[Long], dataBackFile: RandomAccessFile): Unit = {
+
+    logInfo(s"LEO writeIndexFileAndCommitCommon: shuffleId=$shuffleId, mapId=$mapId, lengths=$lengths, dataBackFile=$dataBackFile")
     openFds.computeIfAbsent(shuffleId, (_: ShuffleId) => new ConcurrentLinkedQueue[RandomAccessFile]())
     openFds.get(shuffleId).add(dataBackFile)
     var offset = 0L
     val channel = dataBackFile.getChannel
     for ((blockLength, reduceId) <- lengths.zipWithIndex) {
       if (blockLength > 0) {
-        val blockId = UcxShuffleBockId(shuffleId, mapId ,reduceId)
+        val blockId = UcxShuffleBlockId(shuffleId, mapId ,reduceId)
         val block = new Block {
           private val fileOffset = offset
 
