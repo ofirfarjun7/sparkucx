@@ -312,6 +312,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
     })
   }
 
+  @inline
   def fetchBlocksByBlockIds(executorId: transport.ExecutorId, blockIds: Seq[BlockId],
                             resultBufferAllocator: transport.BufferAllocator,
                             callbacks: Seq[OperationCallback],
@@ -366,6 +367,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
     // Seq(request)
   }
 
+  @inline
   def initExecuter(executorId: transport.ExecutorId, nvkvHandler: NvkvHandler,
                    resultBufferAllocator: transport.BufferAllocator,
                    callback: OperationCallback): Unit = {
@@ -413,6 +415,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
     // request
   }
 
+  @inline
   def commitBlock(executorId: transport.ExecutorId, nvkvHandler: NvkvHandler,
                   resultBufferAllocator: transport.BufferAllocator, packMapperData: ByteBuffer,
                   callback: OperationCallback): Unit = {
