@@ -46,7 +46,6 @@ class NvkvShuffleExecutorComponents(val sparkConf: SparkConf, getTransport: () =
     transport = getTransport()
     val resultBufferAllocator = (size: Long) => transport.hostBounceBufferMemoryPool.get(size)
     transport.initExecuter(blockManager.blockManagerId.executorId.toLong, resultBufferAllocator)
-    transport.progress()
   }
 
   override def createMapOutputWriter(shuffleId: Int, mapTaskId: Long, numPartitions: Int) = {

@@ -157,6 +157,7 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
       ucpWorkerParams.setClientId(clientId)
       val worker = ucxContext.newWorker(ucpWorkerParams)
       allocatedClientWorkers(i) = UcxWorkerWrapper(worker, this, clientId)
+      allocatedClientWorkers(i).start
     }
 
     initialized = true
@@ -199,10 +200,7 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
   override def addExecutor(executorId: ExecutorId, workerAddress: ByteBuffer): Unit = {
     logDebug("LEO adding executor " + executorId)
     executorAddresses.put(executorId, workerAddress)
-    allocatedClientWorkers.foreach(w => {
-      w.getConnection(executorId)
-      w.progressConnect()
-    })
+    allocatedClientWorkers.foreach(_.addExecutor(executorId))
   }
 
   def addExecutors(executorIdsToAddress: Map[ExecutorId, SerializableDirectBuffer]): Unit = {
@@ -212,10 +210,10 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
         logDebug("LEO adding executor " + executorId + " address " + address.value)
       }
     }
+    allocatedClientWorkers.foreach(_.addExecutors)
   }
 
   def preConnect(): Unit = {
-    allocatedClientWorkers.foreach(_.preconnect())
   }
 
   /**
@@ -271,21 +269,21 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
   /**
    * Batch version of [[ fetchBlocksByBlockIds ]].
    */
-  override def fetchBlocksByBlockIds(executorId: ExecutorId, blockIds: Seq[BlockId],
+  def fetchBlocksByBlockIds(executorId: ExecutorId, blockIds: Seq[BlockId],
                                      resultBufferAllocator: BufferAllocator,
                                      callbacks: Seq[OperationCallback],
-                                     amRecvStartCb: () => Unit): Seq[Request] = {
+                                     amRecvStartCb: () => Unit): Unit = {
     allocatedClientWorkers((Thread.currentThread().getId % allocatedClientWorkers.length).toInt)
       .fetchBlocksByBlockIds(executorId, blockIds, resultBufferAllocator, callbacks, amRecvStartCb)
   }
 
-  def initExecuter(executorId: ExecutorId, resultBufferAllocator: BufferAllocator): Request = {
+  def initExecuter(executorId: ExecutorId, resultBufferAllocator: BufferAllocator): Unit = {
     allocatedClientWorkers((Thread.currentThread().getId % allocatedClientWorkers.length).toInt)
       .initExecuter(executorId, nvkvHandler, resultBufferAllocator, (result: OperationResult) => {logDebug("Init executer in UCX")})
   }
 
   def commitBlock(executorId: ExecutorId, resultBufferAllocator: BufferAllocator, 
-                  packMapperData: ByteBuffer): Request = {
+                  packMapperData: ByteBuffer): Unit = {
     logDebug(s"LEO commitBlock threadId ${Thread.currentThread().getId}")
     allocatedClientWorkers((Thread.currentThread().getId % allocatedClientWorkers.length).toInt)
       .commitBlock(executorId, nvkvHandler, resultBufferAllocator, packMapperData, (result: OperationResult) => {logDebug("Init executer in UCX")})
@@ -314,21 +312,5 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
     // amData.close()
     // allocatedServerWorkers((Thread.currentThread().getId % allocatedServerWorkers.length).toInt)
     //   .handleFetchBlockRequest(blocks, replyTag, replyExecutor)
-  }
-
-
-  /**
-   * Progress outstanding operations. This routine is blocking (though may poll for event).
-   * It's required to call this routine within same thread that submitted [[ fetchBlocksByBlockIds ]].
-   *
-   * Return from this method guarantees that at least some operation was progressed.
-   * But not guaranteed that at least one [[ fetchBlocksByBlockIds ]] completed!
-   */
-  override def progress(): Unit = {
-    allocatedClientWorkers((Thread.currentThread().getId % allocatedClientWorkers.length).toInt).progress()
-  }
-
-  def progressConnect(): Unit = {
-    allocatedClientWorkers.par.foreach(_.progressConnect())
   }
 }

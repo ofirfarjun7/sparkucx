@@ -34,17 +34,17 @@ class UcxShuffleManager(override val conf: SparkConf, isDriver: Boolean)
     logDebug("LEO UcxShuffleManager getWriter")
     val env = SparkEnv.get
     handle match {
-      case unsafeShuffleHandle: SerializedShuffleHandle[K@unchecked, V@unchecked] =>
-        logDebug("LEO UcxShuffleManager getWriter unsafeShuffleHandle")
-        new UnsafeShuffleWriter(
-          env.blockManager,
-          context.taskMemoryManager(),
-          unsafeShuffleHandle,
-          mapId,
-          context,
-          env.conf,
-          metrics,
-          shuffleExecutorComponents)
+      // case unsafeShuffleHandle: SerializedShuffleHandle[K@unchecked, V@unchecked] =>
+      //   logDebug("LEO UcxShuffleManager getWriter unsafeShuffleHandle")
+      //   new UnsafeShuffleWriter(
+      //     env.blockManager,
+      //     context.taskMemoryManager(),
+      //     unsafeShuffleHandle,
+      //     mapId,
+      //     context,
+      //     env.conf,
+      //     metrics,
+      //     shuffleExecutorComponents)
       case other: BaseShuffleHandle[K@unchecked, V@unchecked, _] =>
         logDebug("LEO UcxShuffleManager getWriter other")
         new SortShuffleWriter(
