@@ -281,7 +281,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
       }
     }, MEMORY_TYPE.UCS_MEMORY_TYPE_HOST)
 
-    worker.progressRequest(ep.flushNonBlocking(null))
+    worker.progress()
     Seq(request)
   }
 
@@ -318,7 +318,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
         }
      }, MEMORY_TYPE.UCS_MEMORY_TYPE_HOST)
 
-    worker.progressRequest(ep.flushNonBlocking(null))
+    worker.progress()
     while (!connectToRemoteNvkv) {progress()}
     request
   }
@@ -355,7 +355,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
         }
      }, MEMORY_TYPE.UCS_MEMORY_TYPE_HOST)
 
-    worker.progressRequest(ep.flushNonBlocking(null))
+    worker.progress()
     request
   }
 
