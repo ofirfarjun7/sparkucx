@@ -272,6 +272,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
   private def getConnection(executorId: transport.ExecutorId): UcpEndpoint = {
     // TODO: Skip connection if already connected to the DPU of this executor
 
+    // val startTime = System.currentTimeMillis()
     // while (!transport.executorAddresses.contains(executorId)) {
     //   if  (System.currentTimeMillis() - startTime >
     //     transport.ucxShuffleConf.getSparkConf.getTimeAsMs("spark.network.timeout", "100")) {
@@ -280,7 +281,6 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
     // }
 
     connections.getOrElseUpdate(executorId,  {
-      val startTime = System.currentTimeMillis()
       val address = transport.executorAddresses(executorId)
       val desAddress = SerializationUtils.deserializeInetAddress(address)
 
