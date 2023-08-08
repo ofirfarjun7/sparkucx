@@ -96,14 +96,14 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
   private var dsIdx: Int = 0
   private var bytesWrittenToMergedFile = 0L
   private var outputBufferedFileStream: BufferedOutputStream = null
-  private var nvkvHandler: NvkvHandler = ucxTransport.getNvkvHandler
+  private var nvkvWrapper: NvkvWrapper = ucxTransport.getNvkvWrapper
   private var executerId = SparkEnv.get.blockManager.blockManagerId.executorId.toLong
 
   private def getBlockOffset = {
     //TODO - add executer partition offset
     val numShuffles = 1
     val numOfMappers = SparkEnv.get.conf.getInt("spark.groupByTest.numMappers", 1)
-    val shuffleBlockSize = nvkvHandler.getPartitionSize / numShuffles
+    val shuffleBlockSize = nvkvWrapper.getPartitionSize / numShuffles
     val mapBlockSize = shuffleBlockSize / numOfMappers
     val r = mapBlockSize % 512;
     val alignedMapBlockSize = if (r != 0) {mapBlockSize - (r)} else mapBlockSize
@@ -117,8 +117,8 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     lastPartitionId = reducePartitionId
     currChannelPosition = getBlockOffset + bytesWrittenToMergedFile + totalPartitionsPadding
     // val rand = new scala.util.Random
-    // dsIdx = rand.nextInt(nvkvHandler.getNumOfStorage)
-    dsIdx = NvkvRandomDevice.getDeviceId(nvkvHandler.getNumOfDevices)
+    // dsIdx = rand.nextInt(nvkvWrapper.getNumOfStorage)
+    dsIdx = NvkvRandomDevice.getDeviceId(nvkvWrapper.getNumOfDevices)
     NvkvShuffleMapOutputWriter.log.debug("NvkvShuffleMapOutputWriter currChannelPosition " + currChannelPosition)
     new NvkvShufflePartitionWriter(reducePartitionId)
   }
@@ -142,10 +142,10 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     partitionLengths.zip(0 until partitionLengths.size).foreach{ 
         case (partitionLength, reduceId) => {
             NvkvShuffleMapOutputWriter.log.debug(s"shuffleId $shuffleId mapId $mapId reducerId $reduceId offset $blockOffset size $partitionLength")
-            NvkvShuffleMapOutputWriter.log.debug(s"padding ${partitionsPadding(reduceId)} offset ${nvkvHandler.getPartitonOffset(shuffleId, mapId, reduceId)} length ${nvkvHandler.getPartitonLength(shuffleId, mapId, reduceId)}")
-            NvkvShuffleMapOutputWriter.log.debug(s"Send DPU AM: shuffleId $shuffleId mapId $mapId reducerId $reduceId offset ${nvkvHandler.getPartitonOffset(shuffleId, mapId, reduceId)} size ${nvkvHandler.getPartitonLength(shuffleId, mapId, reduceId)}")
-            packMapperData.putLong(nvkvHandler.getPartitonOffset(shuffleId, mapId, reduceId))
-            packMapperData.putLong(nvkvHandler.getPartitonLength(shuffleId, mapId, reduceId))
+            NvkvShuffleMapOutputWriter.log.debug(s"padding ${partitionsPadding(reduceId)} offset ${nvkvWrapper.getPartitonOffset(shuffleId, mapId, reduceId)} length ${nvkvWrapper.getPartitonLength(shuffleId, mapId, reduceId)}")
+            NvkvShuffleMapOutputWriter.log.debug(s"Send DPU AM: shuffleId $shuffleId mapId $mapId reducerId $reduceId offset ${nvkvWrapper.getPartitonOffset(shuffleId, mapId, reduceId)} size ${nvkvWrapper.getPartitonLength(shuffleId, mapId, reduceId)}")
+            packMapperData.putLong(nvkvWrapper.getPartitonOffset(shuffleId, mapId, reduceId))
+            packMapperData.putLong(nvkvWrapper.getPartitonLength(shuffleId, mapId, reduceId))
             blockOffset += partitionLength
         }
     }
@@ -239,14 +239,14 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     override def write(buf: Array[Byte], pos: Int, length: Int): Unit = {
       val offset = currChannelPosition + count
       NvkvShuffleMapOutputWriter.log.debug(s"PartitionWriterStream write2 $shuffleId,$mapId,$partitionId buf $buf pos $pos length $length offset $offset")
-      nvkvHandler.write(dsIdx, shuffleId, mapId, partitionId, buf, length, offset)
+      nvkvWrapper.write(dsIdx, shuffleId, mapId, partitionId, buf, length, offset)
       verifyNotClosed()
       count += length
     }
 
     override def close(): Unit = {
-      var padding: Int = nvkvHandler.writeRemaining(dsIdx, currChannelPosition+count)
-      nvkvHandler.commitPartition(dsIdx, currChannelPosition, count, shuffleId, mapId, partitionId)
+      var padding: Int = nvkvWrapper.writeRemaining(dsIdx, currChannelPosition+count)
+      nvkvWrapper.commitPartition(dsIdx, currChannelPosition, count, shuffleId, mapId, partitionId)
       isClosed = true
       partitionLengths(partitionId) = count
       totalPartitionsPadding += padding

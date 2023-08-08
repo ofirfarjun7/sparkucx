@@ -14,16 +14,16 @@ import org.apache.spark.internal.Logging
 import java.nio.BufferOverflowException
 import org.openucx.jnvkv.NvkvException
 
-object NvkvHandler {
-  private var worker: NvkvHandler = null
+object NvkvWrapper {
+  private var nvkv: NvkvWrapper = null
 
-  def getHandler(ucxContext: UcpContext, numOfPartitions: Int): NvkvHandler = {
-    if (worker == null) worker = new NvkvHandler(ucxContext, numOfPartitions)
-    worker
+  def getHandler(ucxContext: UcpContext, numOfPartitions: Int): NvkvWrapper = {
+    if (nvkv == null) nvkv = new NvkvWrapper(ucxContext, numOfPartitions)
+    nvkv
   }
 }
 
-class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: Long) extends Logging {
+class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: Long) extends Logging {
   final private val nvkvWriteBufferSize  = 1024*1024*40L
   final private val nvkvReadBufferSize  = 1024*1024*40L
   final private val nvkvRemoteReadBufferSize = 1024*1024*43L
@@ -50,11 +50,11 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
     }
   }
 
-  nvkvLogDebug(s"LEO NvkvHandler constructor")
+  nvkvLogDebug(s"LEO NvkvWrapper constructor")
   try {
     Nvkv.init("mlx5_0", nvkvLogEnabled, (1 << executerId).toHexString) 
   } catch {
-    case e: NvkvException => logDebug(s"LEO NvkvHandler: Failed to init nvkv")
+    case e: NvkvException => logDebug(s"LEO NvkvWrapper: Failed to init nvkv")
   }
 
   val ds: Array[Nvkv.DataSet] = Nvkv.query()
@@ -63,20 +63,20 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
   try {
     nvkv = Nvkv.open(ds, Nvkv.LOCAL|Nvkv.REMOTE)
   } catch {
-    case e: NvkvException => logDebug(s"LEO NvkvHandler: Failed to open nvkv")
+    case e: NvkvException => logDebug(s"LEO NvkvWrapper: Failed to open nvkv")
   }
 
   try {
     nvkvWriteBuffer = nvkv.alloc(nvkvWriteBufferSize)
   } catch {
-    case e: NvkvException => logDebug(s"LEO NvkvHandler: Failed to allocate nvkv write buffer")
+    case e: NvkvException => logDebug(s"LEO NvkvWrapper: Failed to allocate nvkv write buffer")
   }
   
   // nvkvReadBuffer = nvkv.alloc(nvkvReadBufferSize)
   try {
     nvkvRemoteReadBuffer = nvkv.alloc(nvkvNumOfReadBuffers*nvkvRemoteReadBufferSize)
   } catch {
-    case e: NvkvException => logDebug(s"LEO NvkvHandler: Failed to allocate nvkv read buffer")
+    case e: NvkvException => logDebug(s"LEO NvkvWrapper: Failed to allocate nvkv read buffer")
   }
 
   nvkvStorageSize = ds(0).size
@@ -134,7 +134,7 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
     try {
       nvkv.connect(add)
     } catch {
-      case e: NvkvException => logDebug("LEO NvkvHandler: Failed to connect to remote nvkv received from DPU")
+      case e: NvkvException => logDebug("LEO NvkvWrapper: Failed to connect to remote nvkv received from DPU")
     }
   }
   
@@ -166,7 +166,7 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
   }
 
   private def post(request: WriteRequest) = {
-    nvkvLogDebug(s"LEO NvkvHandler post write")
+    nvkvLogDebug(s"LEO NvkvWrapper post write")
     if (request.getOffset % 512 != 0) {
       throw new IllegalArgumentException(s"write Illegal offset ${request.getOffset}")
     }
@@ -178,7 +178,7 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
     try nvkv.postWrite(request.getDsIdx, nvkvWriteBuffer, 0, request.getLength, request.getOffset, new Nvkv.Context.Callback() {
       def done(): Unit = {
         request.setComplete()
-        nvkvLogDebug(s"LEO NvkvHandler post completed!")
+        nvkvLogDebug(s"LEO NvkvWrapper post completed!")
       }
     })
     catch {
@@ -188,11 +188,11 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
   }
 
   private def post(request: ReadRequest) = {
-    nvkvLogDebug(s"LEO NvkvHandler post read")
+    nvkvLogDebug(s"LEO NvkvWrapper post read")
     try nvkv.postRead(ds_idx, request.getBuffer, 0, request.getLength, request.getOffset, new Nvkv.Context.Callback() {
       def done(): Unit = {
         request.setComplete()
-        nvkvLogDebug(s"LEO NvkvHandler post completed!")
+        nvkvLogDebug(s"LEO NvkvWrapper post completed!")
       }
     })
     catch {
@@ -220,11 +220,11 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
 
   def read(length: Int, offset: Long): ByteBuffer = {
     val alignedLength = getAlignedLength(length)
-    nvkvLogDebug(s"LEO NvkvHandler read aligned size " + alignedLength)
+    nvkvLogDebug(s"LEO NvkvWrapper read aligned size " + alignedLength)
     val readRequest = new ReadRequest(nvkvReadBuffer, alignedLength, offset)
     post(readRequest)
     pollCompletion(readRequest)
-    nvkvLogDebug(s"LEO NvkvHandler read complete")
+    nvkvLogDebug(s"LEO NvkvWrapper read complete")
 
     var clone: ByteBuffer = ByteBuffer.allocateDirect(length)
     nvkvReadBuffer.limit(length)
@@ -246,11 +246,11 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
     while (remain > 0) {
         if (!nvkvWriteBuffer.hasRemaining()) {
             nvkvWriteBuffer.rewind()
-            nvkvLogDebug(s"LEO NvkvHandler spill buffer relativeOffset $relativeOffset")
+            nvkvLogDebug(s"LEO NvkvWrapper spill buffer relativeOffset $relativeOffset")
             val writeRequest = new WriteRequest(dsIdx, nvkvWriteBuffer, nvkvWriteBufferSize, relativeOffset)
             post(writeRequest)
             pollCompletion(writeRequest)
-            nvkvLogDebug(s"LEO NvkvHandler write complete")
+            nvkvLogDebug(s"LEO NvkvWrapper write complete")
 
             // read(nvkvWriteBufferSize, relativeOffset)
             // test(nvkvWriteBufferSize)
@@ -259,7 +259,7 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
         } else {
             sourceLimit = (source.position()+nvkvWriteBuffer.remaining()).min(length)
             nvkvLogDebug(s"LEO source_position ${source.position()} buffer_remaining ${nvkvWriteBuffer.remaining()} source_capacity ${length}")
-            nvkvLogDebug(s"LEO NvkvHandler write to buffer from offset ${source.position()} length ${sourceLimit - source.position()}")
+            nvkvLogDebug(s"LEO NvkvWrapper write to buffer from offset ${source.position()} length ${sourceLimit - source.position()}")
             remain -= (sourceLimit - source.position());
             source.limit(sourceLimit)
             nvkvWriteBuffer.put(source)
@@ -271,11 +271,11 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
     val bufferPosition = nvkvWriteBuffer.position()
     var relativeOffset: Long = offset - bufferPosition
     nvkvWriteBuffer.rewind()
-    nvkvLogDebug(s"LEO NvkvHandler write remaining size ${bufferPosition} relativeOffset ${relativeOffset}")
+    nvkvLogDebug(s"LEO NvkvWrapper write remaining size ${bufferPosition} relativeOffset ${relativeOffset}")
     val writeRequest = new WriteRequest(dsIdx, nvkvWriteBuffer, getAlignedLength(bufferPosition), relativeOffset)
     post(writeRequest)
     pollCompletion(writeRequest)
-    nvkvLogDebug(s"LEO NvkvHandler write complete")
+    nvkvLogDebug(s"LEO NvkvWrapper write complete")
     // read(bufferPosition, relativeOffset)
     // test(bufferPosition)
     (getAlignedLength(bufferPosition) - bufferPosition)
@@ -283,12 +283,12 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
 
   def commitPartition(dsIdx: Int, start: Long, length: Long, shuffleId: Int, 
                       mapId: Long, reducePartitionId: Int): Unit = {
-    nvkvLogDebug(s"LEO NvkvHandler commitPartition $shuffleId,$mapId,$reducePartitionId offset $start length $length dsIdx $dsIdx")
+    nvkvLogDebug(s"LEO NvkvWrapper commitPartition $shuffleId,$mapId,$reducePartitionId offset $start length $length dsIdx $dsIdx")
     reducePartitions(mapId.toInt)(reducePartitionId) = new ReducePartition(start+dsIdx*nvkvStorageSize, length)
   }
 
   def getPartitonOffset(shuffleId: Int, mapId: Long, reducePartitionId: Int): Long = {
-    nvkvLogDebug(s"LEO NvkvHandler getPartitionOffset $shuffleId,$mapId,$reducePartitionId")
+    nvkvLogDebug(s"LEO NvkvWrapper getPartitionOffset $shuffleId,$mapId,$reducePartitionId")
     if (reducePartitions(mapId.toInt)(reducePartitionId) == null) {
       0
     } else {
@@ -297,7 +297,7 @@ class NvkvHandler private(ucxContext: UcpContext, private var numOfPartitions: L
   }
 
   def getPartitonLength(shuffleId: Int, mapId: Long, reducePartitionId: Int): Long = {
-    nvkvLogDebug(s"LEO NvkvHandler getPartitionOffset $shuffleId,$mapId,$reducePartitionId")
+    nvkvLogDebug(s"LEO NvkvWrapper getPartitionOffset $shuffleId,$mapId,$reducePartitionId")
     if (reducePartitions(mapId.toInt)(reducePartitionId) == null) {
       0
     } else {

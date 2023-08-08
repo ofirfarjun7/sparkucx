@@ -85,7 +85,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
       val buf: ByteBuffer = UcxUtils.getByteBufferView(ucpAmData.getDataAddress, ucpAmData.getLength.toInt)
       var bytes: Array[Byte] = new Array[Byte](ucpAmData.getLength.toInt);
       buf.get(bytes);
-      transport.getNvkvHandler.connectToRemote(bytes)
+      transport.getNvkvWrapper.connectToRemote(bytes)
       connectToRemoteNvkv = true
     } else {
       logDebug(s"LEO InitExecutorAck handler Invalid data!!!")  
@@ -285,17 +285,17 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
     Seq(request)
   }
 
-  def initExecuter(executorId: transport.ExecutorId, nvkvHandler: NvkvHandler,
+  def initExecuter(executorId: transport.ExecutorId, nvkvWrapper: NvkvWrapper,
                 resultBufferAllocator: transport.BufferAllocator,
                 callback: OperationCallback): Request = {
     val startTime = System.nanoTime()
     val ep = getConnection(executorId)
     val t = tag.incrementAndGet()
-    val length = nvkvHandler.pack.capacity()
+    val length = nvkvWrapper.pack.capacity()
 
     // val buffer = Platform.allocateDirectBuffer(length).order(ByteOrder.nativeOrder())
     val buffer = Platform.allocateDirectBuffer(length)
-    buffer.put(nvkvHandler.pack)
+    buffer.put(nvkvWrapper.pack)
     buffer.rewind()
 
 
@@ -323,7 +323,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
     request
   }
 
-    def commitBlock(executorId: transport.ExecutorId, nvkvHandler: NvkvHandler,
+    def commitBlock(executorId: transport.ExecutorId, nvkvWrapper: NvkvWrapper,
                 resultBufferAllocator: transport.BufferAllocator, packMapperData: ByteBuffer,
                 callback: OperationCallback): Request = {
     val startTime = System.nanoTime()

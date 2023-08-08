@@ -91,10 +91,10 @@ class UcxShuffleBlockResolver(ucxShuffleManager: CommonUcxShuffleManager)
       var resultBuffer = getBlockFromDpu(shuffleId, mapId, startReduceId)
       new NioManagedBuffer(resultBuffer)
     } else {
-      var length = ucxTransport.getNvkvHandler.getPartitonLength(shuffleId, mapId, startReduceId).toInt
-      var offset = ucxTransport.getNvkvHandler.getPartitonOffset(shuffleId, mapId, startReduceId)
+      var length = ucxTransport.getNvkvWrapper.getPartitonLength(shuffleId, mapId, startReduceId).toInt
+      var offset = ucxTransport.getNvkvWrapper.getPartitonOffset(shuffleId, mapId, startReduceId)
       logDebug(s"LEO UcxShuffleBlockResolver - Reading shuffleId $shuffleId mapId $mapId reduceId $startReduceId at offset $offset with length $length from nvkv")
-      var resultBuffer = ucxTransport.getNvkvHandler.read(length, offset)
+      var resultBuffer = ucxTransport.getNvkvWrapper.read(length, offset)
       new NioManagedBuffer(resultBuffer)
     }
   }

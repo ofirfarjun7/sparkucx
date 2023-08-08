@@ -80,7 +80,7 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
   private val ucpWorkerParams = new UcpWorkerParams().requestThreadSafety()
   val endpoints = mutable.Set.empty[UcpEndpoint]
   val executorAddresses = new TrieMap[ExecutorId, ByteBuffer]
-  var nvkvHandler: NvkvHandler = null
+  var nvkvWrapper: NvkvWrapper = null
 
   private var allocatedClientWorkers: Array[UcxWorkerWrapper] = _
 
@@ -117,7 +117,7 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
     localDpuEp = globalWorker.newEndpoint(endpointParams)
   }
 
-  def getNvkvHandler: NvkvHandler = nvkvHandler
+  def getNvkvWrapper: NvkvWrapper = nvkvWrapper
 
   override def init(): Unit = {
     logDebug("LEO init UcxShuffleTransport")
@@ -145,7 +145,7 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
     globalWorker = ucxContext.newWorker(ucpWorkerParams)
     hostBounceBufferMemoryPool = new UcxHostBounceBuffersPool(ucxShuffleConf, ucxContext)
 
-    nvkvHandler = NvkvHandler.getHandler(ucxContext, 1)
+    nvkvWrapper = NvkvWrapper.getHandler(ucxContext, 1)
 
     // progressThread = new GlobalWorkerRpcThread(globalWorker, this)
     // progressThread.start()
@@ -281,14 +281,14 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
 
   def initExecuter(executorId: ExecutorId, resultBufferAllocator: BufferAllocator): Request = {
     allocatedClientWorkers((Thread.currentThread().getId % allocatedClientWorkers.length).toInt)
-      .initExecuter(executorId, nvkvHandler, resultBufferAllocator, (result: OperationResult) => {logDebug("Init executer in UCX")})
+      .initExecuter(executorId, nvkvWrapper, resultBufferAllocator, (result: OperationResult) => {logDebug("Init executer in UCX")})
   }
 
   def commitBlock(executorId: ExecutorId, resultBufferAllocator: BufferAllocator, 
                   packMapperData: ByteBuffer): Request = {
     logDebug(s"LEO commitBlock threadId ${Thread.currentThread().getId}")
     allocatedClientWorkers((Thread.currentThread().getId % allocatedClientWorkers.length).toInt)
-      .commitBlock(executorId, nvkvHandler, resultBufferAllocator, packMapperData, (result: OperationResult) => {logDebug("Init executer in UCX")})
+      .commitBlock(executorId, nvkvWrapper, resultBufferAllocator, packMapperData, (result: OperationResult) => {logDebug("Init executer in UCX")})
   }
 
   // def connectServerWorkers(executorId: ExecutorId, workerAddress: ByteBuffer): Unit = {

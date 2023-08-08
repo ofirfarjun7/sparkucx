@@ -35,7 +35,7 @@ class NvkvShuffleExecutorComponents(val sparkConf: SparkConf, getTransport: () =
     if (blockManager == null) {
       throw new IllegalStateException("No blockManager available from the SparkEnv.");
     }
-    logDebug("LEO NvkvShuffleExecutorComponents initializeExecutor init NvkvHandler");
+    logDebug("LEO NvkvShuffleExecutorComponents initializeExecutor init NvkvWrapper");
     //TODO - pass number of executors.
     blockResolver = new IndexShuffleBlockResolver(sparkConf, blockManager);
 
