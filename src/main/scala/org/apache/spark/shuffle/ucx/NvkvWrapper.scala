@@ -17,7 +17,7 @@ import org.openucx.jnvkv.NvkvException
 object NvkvWrapper {
   private var nvkv: NvkvWrapper = null
 
-  def getHandler(ucxContext: UcpContext, numOfPartitions: Int): NvkvWrapper = {
+  def getNvkv(ucxContext: UcpContext, numOfPartitions: Int): NvkvWrapper = {
     if (nvkv == null) nvkv = new NvkvWrapper(ucxContext, numOfPartitions)
     nvkv
   }

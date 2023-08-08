@@ -145,7 +145,7 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
     globalWorker = ucxContext.newWorker(ucpWorkerParams)
     hostBounceBufferMemoryPool = new UcxHostBounceBuffersPool(ucxShuffleConf, ucxContext)
 
-    nvkvWrapper = NvkvWrapper.getHandler(ucxContext, 1)
+    nvkvWrapper = NvkvWrapper.getNvkv(ucxContext, 1)
 
     // progressThread = new GlobalWorkerRpcThread(globalWorker, this)
     // progressThread.start()
