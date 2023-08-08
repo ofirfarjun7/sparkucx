@@ -10,7 +10,7 @@ import org.apache.spark.internal.Logging
 import java.io.File;
 import org.ini4j.Ini
 
-object DpuUtils {
+object DpuUtils extends Logging {
     val CLUSTER_CONF_FILE = "/hpc/mtr_scrap/users/ofarjon/spark/cluster.ini"
 
     /**
@@ -22,10 +22,9 @@ object DpuUtils {
     def getLocalDpuAddress(): String = {
         val ini = new Ini(new File(CLUSTER_CONF_FILE))
         val section = ini.get("dpu")
-        // logDebug(s"LEO section: $section")
         val hostname = java.net.InetAddress.getLocalHost.getHostName.split("\\.")(0)
-        // logDebug(s"LEO hostname: $hostname")
         val dpuAddress = section.get(hostname)
+        logDebug(s"LEO hostname: $hostname dpuAddress $dpuAddress")
 
         dpuAddress
     }
