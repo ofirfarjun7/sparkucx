@@ -16,6 +16,7 @@ import org.apache.spark.shuffle.api.ShuffleMapOutputWriter;
 import org.apache.spark.shuffle.IndexShuffleBlockResolver;
 import org.apache.spark.shuffle.api.SingleSpillShuffleMapOutputWriter;
 import org.apache.spark.storage.BlockManager;
+import org.apache.spark.shuffle.utils.CommonUtils
 // import org.apache.spark.shuffle.ucx.DpuShuffleMapOutputWriter;
 import org.apache.spark.shuffle.ucx;
 
@@ -38,10 +39,9 @@ class NvkvShuffleExecutorComponents(val sparkConf: SparkConf, getTransport: () =
     logDebug("LEO NvkvShuffleExecutorComponents initializeExecutor init NvkvWrapper");
     //TODO - pass number of executors.
     blockResolver = new IndexShuffleBlockResolver(sparkConf, blockManager);
-
-    while (getTransport() == null) {
-      Thread.sleep(10)
-    }
+    CommonUtils.safePolling(() => {},
+      () => {getTransport() == null}, 10*1000,
+      new CommonUtils.CommonUtilsTimeoutException(s"Got timeout when polling"), 10)
 
     transport = getTransport()
     val resultBufferAllocator = (size: Long) => transport.hostBounceBufferMemoryPool.get(size)

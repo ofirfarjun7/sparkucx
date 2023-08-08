@@ -16,6 +16,7 @@ import org.apache.spark.shuffle.sort.SortShuffleManager
 import org.apache.spark.shuffle.ucx.rpc.{UcxDriverRpcEndpoint, UcxExecutorRpcEndpoint}
 import org.apache.spark.shuffle.ucx.rpc.UcxRpcMessages.{ExecutorAdded, IntroduceAllExecutors}
 import org.apache.spark.shuffle.ucx.utils.{SerializableDirectBuffer, SerializationUtils, DpuUtils}
+import org.apache.spark.shuffle.utils.{UnsafeUtils, CommonUtils}
 import org.apache.spark.util.{RpcUtils, ThreadUtils}
 import org.apache.spark.{SecurityManager, SparkConf, SparkEnv}
 
@@ -44,18 +45,19 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
 
   setupThread.submit(new Runnable {
     override def run(): Unit = {
-      while (SparkEnv.get == null) {
-        Thread.sleep(10)
-      }
+      CommonUtils.safePolling(() => {},
+      () => {SparkEnv.get == null}, 10*1000,
+      new CommonUtils.CommonUtilsTimeoutException(s"Got timeout when polling"), 10)
+
       if (isDriver) {
         val rpcEnv = SparkEnv.get.rpcEnv
         logInfo(s"Setting up driver RPC")
         driverEndpoint = new UcxDriverRpcEndpoint(rpcEnv)
         rpcEnv.setupEndpoint(driverRpcName, driverEndpoint)
       } else {
-        while (SparkEnv.get.blockManager.blockManagerId == null) {
-          Thread.sleep(5)
-        }
+        CommonUtils.safePolling(() => {},
+          () => {SparkEnv.get.blockManager.blockManagerId == null}, 10*1000,
+          new CommonUtils.CommonUtilsTimeoutException(s"Got timeout when polling"), 5)
         startUcxTransport()
       }
     }

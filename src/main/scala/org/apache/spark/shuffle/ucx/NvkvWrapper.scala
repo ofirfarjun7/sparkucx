@@ -9,7 +9,7 @@ import org.openucx.jucx.ucs.UcsConstants
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import org.apache.spark.SparkEnv
-import org.apache.spark.shuffle.utils.UnsafeUtils
+import org.apache.spark.shuffle.utils.{UnsafeUtils, CommonUtils}
 import org.apache.spark.internal.Logging
 import java.nio.BufferOverflowException
 import org.openucx.jnvkv.NvkvException
@@ -202,7 +202,7 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
   }
 
   def pollCompletion(request: Request): Unit = {
-    while (!request.getComplete()) nvkv.progress
+    CommonUtils.safePolling(() => {nvkv.progress}, () => {!request.getComplete()})
   }
 
   def getPartitionSize: Long = partitionSize
