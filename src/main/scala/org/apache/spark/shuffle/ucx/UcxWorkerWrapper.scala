@@ -17,7 +17,7 @@ import org.openucx.jucx.{UcxCallback, UcxException, UcxUtils}
 import org.apache.spark.internal.Logging
 import org.apache.spark.shuffle.ucx.memory.UcxBounceBufferMemoryBlock
 import org.apache.spark.shuffle.ucx.utils.{SerializationUtils, UcpSparkAmId}
-import org.apache.spark.shuffle.utils.UnsafeUtils
+import org.apache.spark.shuffle.utils.{UnsafeUtils, CommonUtils}
 import org.apache.spark.unsafe.Platform
 import org.apache.spark.util.ThreadUtils
 
@@ -164,9 +164,9 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
     val closeRequests = connections.map {
       case (_, endpoint) => endpoint.closeNonBlockingForce()
     }
-    while (!closeRequests.forall(_.isCompleted)) {
-      progress()
-    }
+
+    CommonUtils.safePolling(() => {progress()},
+      () => {!closeRequests.forall(_.isCompleted)})
     ioThreadPool.shutdown()
     connections.clear()
     worker.close()
@@ -176,10 +176,10 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
    * Blocking progress until there's outstanding flush requests.
    */
   def progressConnect(): Unit = {
-    while (!flushRequests.isEmpty) {
-      progress()
-      flushRequests.removeIf(_.isCompleted)
-    }
+    CommonUtils.safePolling(() => {
+        progress()
+        flushRequests.removeIf(_.isCompleted)
+      },() => {!flushRequests.isEmpty})
     logTrace(s"Flush completed. Number of connections: ${connections.keys.size}")
   }
 
@@ -208,13 +208,10 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
   def getConnection(executorId: transport.ExecutorId): UcpEndpoint = {
     // TODO: Skip connection if already connected to the DPU of this executor
 
-    val startTime = System.currentTimeMillis()
-    while (!transport.executorAddresses.contains(executorId)) {
-      if  (System.currentTimeMillis() - startTime >
-        transport.ucxShuffleConf.getSparkConf.getTimeAsMs("spark.network.timeout", "100")) {
-        throw new UcxException(s"Don't get a worker address for $executorId")
-      }
-    }
+    CommonUtils.safePolling(() => {},
+      () => {!transport.executorAddresses.contains(executorId)}, 
+      transport.ucxShuffleConf.getSparkConf.getTimeAsMs("spark.network.timeout", "100"),
+      new UcxException(s"RPC timeout - Waiting for DPU address for $executorId"))
 
     connections.getOrElseUpdate(executorId,  {
       val address = transport.executorAddresses(executorId)
@@ -315,7 +312,10 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
      }, MEMORY_TYPE.UCS_MEMORY_TYPE_HOST)
 
     worker.progress()
-    while (!connectToRemoteNvkv) {progress()}
+    CommonUtils.safePolling(() => {progress()},
+      () => {!connectToRemoteNvkv}, 
+      10*1000,
+      new UcxException(s"Connect to remote $address failed"))
     request
   }
 
@@ -401,9 +401,9 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
       }, new UcpRequestParams().setMemoryType(UcsConstants.MEMORY_TYPE.UCS_MEMORY_TYPE_HOST)
         .setMemoryHandle(resultMemory.memory))
 
-    while (!req.isCompleted) {
-      progress()
-    }
+    CommonUtils.safePolling(() => {progress()},
+      () => {!req.isCompleted}, 10*1000,
+      new UcxException(s"Failed when sending fetch block request"))
   } catch {
     case ex: Throwable => logError(s"Failed to read and send data: $ex")
   }
