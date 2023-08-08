@@ -154,7 +154,6 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     val resultBufferAllocator = (size: Long) => ucxTransport.hostBounceBufferMemoryPool.get(size)
     ucxTransport.commitBlock(executerId, resultBufferAllocator, packMapperData)
     NvkvShuffleMapOutputWriter.log.debug("Writing shuffle index file for mapId " + mapId + " with lengths " + partitionLengths(0) + " " + partitionLengths(1))
-    ucxTransport.progress()
     partitionLengths
   }
 

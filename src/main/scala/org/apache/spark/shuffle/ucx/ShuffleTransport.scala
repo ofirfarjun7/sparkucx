@@ -147,22 +147,4 @@ trait ShuffleTransport {
    * Note: this is a blocking call. On return it's safe to free blocks memory.
    */
   def unregister(blockId: BlockId): Unit
-
-  /**
-   * Batch version of [[ fetchBlocksByBlockIds ]].
-   */
-  def fetchBlocksByBlockIds(executorId: ExecutorId, blockIds: Seq[BlockId],
-                            resultBufferAllocator: BufferAllocator,
-                            callbacks: Seq[OperationCallback],
-                            amRecvStartCb: () => Unit): Seq[Request]
-
-  /**
-   * Progress outstanding operations. This routine is blocking (though may poll for event).
-   * It's required to call this routine within same thread that submitted [[ fetchBlocksByBlockIds ]].
-   *
-   * Return from this method guarantees that at least some operation was progressed.
-   * But not guaranteed that at least one [[ fetchBlocksByBlockIds ]] completed!
-   */
-  def progress(): Unit
-
 }

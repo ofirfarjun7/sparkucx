@@ -27,10 +27,7 @@ class UcxShuffleClient(val transport: UcxShuffleTransport, mapId2PartitionId: Ma
 
     val ucxBlockIds = Array.ofDim[UcxShuffleBlockId](blockIds.length)
     val callbacks = Array.ofDim[OperationCallback](blockIds.length)
-    var send = 0
-    var receive = 0
     for (i <- blockIds.indices) {
-      send = send + 1
       val blockId = SparkBlockId.apply(blockIds(i)).asInstanceOf[SparkShuffleBlockId]
       ucxBlockIds(i) = UcxShuffleBlockId(blockId.shuffleId, mapId2PartitionId(blockId.mapId), blockId.reduceId)
       callbacks(i) = (result: OperationResult) => {
@@ -45,11 +42,7 @@ class UcxShuffleClient(val transport: UcxShuffleTransport, mapId2PartitionId: Ma
       }
       val resultBufferAllocator = (size: Long) => transport.hostBounceBufferMemoryPool.get(size)
       transport.fetchBlocksByBlockIds(execId.toLong, Array(ucxBlockIds(i)), resultBufferAllocator, 
-        Array(callbacks(i)), () => {receive = receive + 1})
-    }
-
-    while (send != receive) {
-      transport.progress()
+        Array(callbacks(i)), () => {})
     }
   }
 
