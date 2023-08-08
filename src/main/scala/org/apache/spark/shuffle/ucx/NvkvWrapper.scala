@@ -85,12 +85,12 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
   var nvkvCtx: Array[Byte] = ByteBuffer.wrap(nvkv.export()).order(ByteOrder.nativeOrder()).array()
   var nvkvCtxSize: Int = nvkvCtx.length
 
-  nvkvLogDebug(s"LEO Register bb")
+  nvkvLogDebug(s"LEO NvkvWrapper: Register bb")
   val mem: UcpMemory = ucxContext.registerMemory(nvkvRemoteReadBuffer)
   var mkeyBuffer: ByteBuffer = null
   mkeyBuffer = mem.getExportedMkeyBuffer()
   
-  nvkvLogDebug(s"LEO Try to pack nvkv")
+  nvkvLogDebug(s"LEO NvkvWrapper: Try to pack nvkv")
   packData = ByteBuffer.allocateDirect(UnsafeUtils.INT_SIZE  + // nvkvCtx size
                                        nvkvCtxSize           + // nvkvCtx
                                        UnsafeUtils.LONG_SIZE + // readBuf Address
@@ -107,8 +107,9 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
   packData.put(mkeyBuffer)
   packData.rewind()
 
-  nvkvLogDebug(s"LEO packedNvkv nvkvCtx ${nvkvCtx} nvkvCtxSize ${nvkvCtxSize} bb ${UnsafeUtils.getAdress(nvkvRemoteReadBuffer)}")
-  nvkvLogDebug(s"LEO packedNvkv packData capacity ${mkeyBuffer.capacity()} packData limit ${mkeyBuffer.limit()}")
+  nvkvLogDebug(s"LEO NvkvWrapper: packedNvkv nvkvCtx ${nvkvCtx} nvkvCtxSize ${nvkvCtxSize} bb ${UnsafeUtils.getAdress(nvkvRemoteReadBuffer)}")
+  nvkvLogDebug(s"LEO NvkvWrapper: packedNvkv packData capacity ${mkeyBuffer.capacity()} packData limit ${mkeyBuffer.limit()}")
+  nvkvLogDebug(s"LEO NvkvWrapper: Finish init NVKV")
 
   // TODO - store bb in array not ListBuffer
   // To be used when fetching local blocks using DPU - no need to transfer data just bb idx
