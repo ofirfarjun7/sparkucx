@@ -15,22 +15,22 @@ import org.apache.spark.shuffle.ucx.utils.{SerializableDirectBuffer, Serializati
 class UcxDriverRpcEndpoint(override val rpcEnv: RpcEnv) extends ThreadSafeRpcEndpoint with Logging {
 
   private val endpoints: mutable.Set[RpcEndpointRef] = mutable.HashSet.empty
-  private var executorToWorkerAddress = HashMap.empty[Long, SerializableDirectBuffer]
+  private var executorToDpuAddress = HashMap.empty[Long, SerializableDirectBuffer]
 
 
   override def receiveAndReply(context: RpcCallContext): PartialFunction[Any, Unit] = {
     case message@ExecutorAdded(executorId: Long, endpoint: RpcEndpointRef,
-    ucxWorkerAddress: SerializableDirectBuffer) => {
-      // Driver receives a message from executor with it's workerAddress
+    dpuSockAddress: SerializableDirectBuffer) => {
+      // Driver receives a message from executor with it's local dpu sockAddress
       // 1. Introduce existing members of a cluster
       logDebug(s"LEO driver received $message")
-      logDebug(s"LEO ucxWorkerAddress: ${SerializationUtils.deserializeInetAddress(ucxWorkerAddress.value)}")
-      if (executorToWorkerAddress.nonEmpty) {
-        val msg = IntroduceAllExecutors(executorToWorkerAddress)
+      logDebug(s"LEO dpuSockAddress: ${SerializationUtils.deserializeInetAddress(dpuSockAddress.value)}")
+      if (executorToDpuAddress.nonEmpty) {
+        val msg = IntroduceAllExecutors(executorToDpuAddress)
         logDebug(s"replying $msg to $executorId")
         context.reply(msg)
       }
-      executorToWorkerAddress += executorId -> ucxWorkerAddress
+      executorToDpuAddress += executorId -> dpuSockAddress
       // 2. For each existing member introduce newly joined executor.
       endpoints.foreach(ep => {
         logDebug(s"Sending $message to $ep")

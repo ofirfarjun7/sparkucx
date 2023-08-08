@@ -18,21 +18,21 @@ class UcxExecutorRpcEndpoint(override val rpcEnv: RpcEnv, transport: UcxShuffleT
 
   override def receive: PartialFunction[Any, Unit] = {
     case ExecutorAdded(executorId: Long, _: RpcEndpointRef,
-    ucxWorkerAddress: SerializableDirectBuffer) =>
+    dpuSockAddress: SerializableDirectBuffer) =>
       logDebug(s"LEO executor received ExecutorAdded($executorId)")
-      logDebug(s"LEO ucxWorkerAddress: ${SerializationUtils.deserializeInetAddress(ucxWorkerAddress.value)}")
+      logDebug(s"LEO dpuSockAddress: ${SerializationUtils.deserializeInetAddress(dpuSockAddress.value)}")
       executorService.submit(new Runnable() {
         override def run(): Unit = {
-          logDebug(s"LEO ExecutorRpc transport.addExecutor($executorId, ${SerializationUtils.deserializeInetAddress(ucxWorkerAddress.value)})")
-          transport.addExecutor(executorId, ucxWorkerAddress.value)
+          logDebug(s"LEO ExecutorRpc transport.addExecutor($executorId, ${SerializationUtils.deserializeInetAddress(dpuSockAddress.value)})")
+          transport.addExecutor(executorId, dpuSockAddress.value)
         }
       })
-    case IntroduceAllExecutors(executorIdToWorkerAdresses: Map[Long, SerializableDirectBuffer]) =>
-      logDebug(s"LEO received IntroduceAllExecutors(${executorIdToWorkerAdresses.keys.mkString(",")}")
+    case IntroduceAllExecutors(executorIdToDpuAddresses: Map[Long, SerializableDirectBuffer]) =>
+      logDebug(s"LEO received IntroduceAllExecutors(${executorIdToDpuAddresses.keys.mkString(",")}")
       executorService.submit(new Runnable() {
         override def run(): Unit = {
-          logDebug(s"LEO ExecutorRpc transport.addExecutors(executorIdToWorkerAdresses)")
-          transport.addExecutors(executorIdToWorkerAdresses)
+          logDebug(s"LEO ExecutorRpc transport.addExecutors(executorIdToDpuAddresses)")
+          transport.addExecutors(executorIdToDpuAddresses)
           transport.preConnect()
         }
       })

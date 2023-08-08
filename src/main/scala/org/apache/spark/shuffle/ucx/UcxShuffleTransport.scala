@@ -196,9 +196,9 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
    * Add executor's worker address. For standalone testing purpose and for implementations that makes
    * connection establishment outside of UcxShuffleManager.
    */
-  override def addExecutor(executorId: ExecutorId, workerAddress: ByteBuffer): Unit = {
+  override def addExecutor(executorId: ExecutorId, dpuSockAddress: ByteBuffer): Unit = {
     logDebug("LEO adding executor " + executorId)
-    executorAddresses.put(executorId, workerAddress)
+    executorAddresses.put(executorId, dpuSockAddress)
     allocatedClientWorkers.foreach(w => {
       w.getConnection(executorId)
       w.progressConnect()

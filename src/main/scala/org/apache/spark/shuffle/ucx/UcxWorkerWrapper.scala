@@ -218,24 +218,20 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
 
     connections.getOrElseUpdate(executorId,  {
       val address = transport.executorAddresses(executorId)
-      val desAddress = SerializationUtils.deserializeInetAddress(address)
+      val deserializedAddress = SerializationUtils.deserializeInetAddress(address)
 
-      dpuAddress.getOrElseUpdate(desAddress, {
+      dpuAddress.getOrElseUpdate(deserializedAddress, {
         val endpointParams = new UcpEndpointParams().setPeerErrorHandlingMode()
-          .setSocketAddress(desAddress).sendClientId()
+          .setSocketAddress(deserializedAddress).sendClientId()
           .setErrorHandler(new UcpEndpointErrorHandler() {
             override def onError(ep: UcpEndpoint, status: Int, errorMsg: String): Unit = {
               logError(s"Endpoint to $executorId got an error: $errorMsg")
-              dpuAddress.remove(desAddress)
+              dpuAddress.remove(deserializedAddress)
             }
-          }).setName(s"Endpoint to DPU/$desAddress")
+          }).setName(s"Endpoint to DPU/$deserializedAddress")
 
-        logDebug(s"Worker $this connecting to DPU($desAddress)")
+        logDebug(s"Worker $this connecting to DPU($deserializedAddress)")
         val ep = worker.newEndpoint(endpointParams)
-        val header = Platform.allocateDirectBuffer(UnsafeUtils.LONG_SIZE)
-        header.putLong(id)
-        header.rewind()
-        val workerAddress = worker.getAddress
         ep
       })
     })

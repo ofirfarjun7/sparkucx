@@ -10,10 +10,10 @@ import org.apache.spark.shuffle.ucx.utils.SerializableDirectBuffer
 
 object UcxRpcMessages {
   /**
-   * Called from executor to driver, to introduce ucx worker address.
+   * Called from executor to driver, to introduce dpu address.
    */
   case class ExecutorAdded(executorId: Long, endpoint: RpcEndpointRef,
-                           ucxWorkerAddress: SerializableDirectBuffer)
+                           dpuSockAddress: SerializableDirectBuffer)
 
   /**
    * Reply from driver with all executors in the cluster with their worker addresses.
