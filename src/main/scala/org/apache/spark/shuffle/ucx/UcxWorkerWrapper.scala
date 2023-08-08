@@ -209,12 +209,12 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
     // TODO: Skip connection if already connected to the DPU of this executor
 
     val startTime = System.currentTimeMillis()
-    // while (!transport.executorAddresses.contains(executorId)) {
-    //   if  (System.currentTimeMillis() - startTime >
-    //     transport.ucxShuffleConf.getSparkConf.getTimeAsMs("spark.network.timeout", "100")) {
-    //     throw new UcxException(s"Don't get a worker address for $executorId")
-    //   }
-    // }
+    while (!transport.executorAddresses.contains(executorId)) {
+      if  (System.currentTimeMillis() - startTime >
+        transport.ucxShuffleConf.getSparkConf.getTimeAsMs("spark.network.timeout", "100")) {
+        throw new UcxException(s"Don't get a worker address for $executorId")
+      }
+    }
 
     connections.getOrElseUpdate(executorId,  {
       val address = transport.executorAddresses(executorId)
