@@ -8,6 +8,7 @@ import java.util
 import java.util.Optional
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.shuffle.utils.CommonUtils
 import org.apache.spark.{SparkConf, SparkEnv}
 import org.apache.spark.shuffle.sort.io.{LocalDiskShuffleExecutorComponents, LocalDiskShuffleMapOutputWriter, LocalDiskSingleSpillMapOutputWriter}
 import org.apache.spark.shuffle.UcxShuffleManager
@@ -24,9 +25,9 @@ class UcxLocalDiskShuffleExecutorComponents(sparkConf: SparkConf)
   override def initializeExecutor(appId: String, execId: String, extraConfigs: util.Map[String, String]): Unit = {
     logDebug("LEO UcxLocalDiskShuffleExecutorComponents initializeExecutor appId: " + appId + " execId: " + execId)
     val ucxShuffleManager = SparkEnv.get.shuffleManager.asInstanceOf[UcxShuffleManager]
-    while (ucxShuffleManager.ucxTransport == null) {
-      Thread.sleep(5)
-    }
+    CommonUtils.safePolling(() => {},
+      () => {ucxShuffleManager.ucxTransport == null}, 10*1000,
+      new CommonUtils.CommonUtilsTimeoutException(s"Got timeout when polling"), 5)
 
     blockResolver = ucxShuffleManager.shuffleBlockResolver
   }

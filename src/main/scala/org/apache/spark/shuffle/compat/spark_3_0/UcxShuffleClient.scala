@@ -9,7 +9,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.network.buffer.{ManagedBuffer, NioManagedBuffer}
 import org.apache.spark.network.shuffle.{BlockFetchingListener, BlockStoreClient, DownloadFileManager}
 import org.apache.spark.shuffle.ucx.{OperationCallback, OperationResult, UcxShuffleBlockId, UcxShuffleTransport}
-import org.apache.spark.shuffle.utils.UnsafeUtils
+import org.apache.spark.shuffle.utils.{UnsafeUtils, CommonUtils}
 import org.apache.spark.storage.{BlockId => SparkBlockId, ShuffleBlockId => SparkShuffleBlockId}
 
 class UcxShuffleClient(val transport: UcxShuffleTransport, mapId2PartitionId: Map[Long, Int]) extends BlockStoreClient with Logging {
@@ -48,9 +48,7 @@ class UcxShuffleClient(val transport: UcxShuffleTransport, mapId2PartitionId: Ma
         Array(callbacks(i)), () => {receive = receive + 1})
     }
 
-    while (send != receive) {
-      transport.progress()
-    }
+    CommonUtils.safePolling(() => {transport.progress()}, () => {send != receive})
   }
 
   override def close(): Unit = {

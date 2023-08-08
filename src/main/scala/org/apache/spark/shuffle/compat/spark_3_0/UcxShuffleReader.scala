@@ -24,6 +24,7 @@ import org.apache.spark._
 import org.apache.spark.internal.{Logging, config}
 import org.apache.spark.io.CompressionCodec
 import org.apache.spark.serializer.SerializerManager
+import org.apache.spark.shuffle.utils.CommonUtils
 import org.apache.spark.shuffle.ucx.UcxShuffleTransport
 import org.apache.spark.shuffle.{BaseShuffleHandle, ShuffleReadMetricsReporter, ShuffleReader}
 import org.apache.spark.storage.{BlockId, BlockManager, ShuffleBlockBatchId, ShuffleBlockFetcherIterator, ShuffleBlockId}
@@ -115,10 +116,11 @@ private[spark] class UcxShuffleReader[K, C](handle: BaseShuffleHandle[K, _, C],
     // Do progress if queue is empty before calling next on ShuffleIterator
     val ucxWrappedStream = new Iterator[(BlockId, InputStream)] {
       override def next(): (BlockId, InputStream) = {
+        
         val startTime = System.nanoTime()
-        while (resultQueue.isEmpty) {
-          transport.progress()
-        }
+        CommonUtils.safePolling(() => {transport.progress()},
+          () => {resultQueue.isEmpty})
+
         val fetchWaitTime = System.nanoTime() - startTime
         readMetrics.incFetchWaitTime(TimeUnit.NANOSECONDS.toMillis(fetchWaitTime))
         wrappedStreams.next()
