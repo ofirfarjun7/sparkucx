@@ -4,6 +4,7 @@
 */
 package org.apache.spark.shuffle.ucx
 
+import java.net.InetSocketAddress
 import java.io.Closeable
 import java.util.concurrent.{ConcurrentLinkedQueue, Callable, Future, FutureTask}
 import java.util.concurrent.atomic.AtomicInteger
@@ -62,6 +63,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
   extends Closeable with Logging {
 
   private final val connections =  new TrieMap[transport.ExecutorId, UcpEndpoint]
+  private final val dpuAddress =  new TrieMap[InetSocketAddress, UcpEndpoint]
   private val requestData = new TrieMap[Int, (Seq[OperationCallback], () => Unit, UcxRequest, transport.BufferAllocator)]
   private val tag = new AtomicInteger(Random.nextInt())
   private val flushRequests = new ConcurrentLinkedQueue[UcpRequest]()
@@ -280,35 +282,26 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
     connections.getOrElseUpdate(executorId,  {
       val startTime = System.currentTimeMillis()
       val address = transport.executorAddresses(executorId)
-      val endpointParams = new UcpEndpointParams().setPeerErrorHandlingMode()
-        .setSocketAddress(SerializationUtils.deserializeInetAddress(address)).sendClientId()
-        .setErrorHandler(new UcpEndpointErrorHandler() {
-          override def onError(ep: UcpEndpoint, status: Int, errorMsg: String): Unit = {
-            logError(s"Endpoint to $executorId got an error: $errorMsg")
-            connections.remove(executorId)
-          }
-        }).setName(s"Endpoint to $executorId")
+      val desAddress = SerializationUtils.deserializeInetAddress(address)
 
-      logDebug(s"Worker $this connecting to Executor($executorId, " +
-        s"${SerializationUtils.deserializeInetAddress(address)})")
-      val ep = worker.newEndpoint(endpointParams)
-      val header = Platform.allocateDirectBuffer(UnsafeUtils.LONG_SIZE)
-      header.putLong(id)
-      header.rewind()
-      val workerAddress = worker.getAddress
+      dpuAddress.getOrElseUpdate(desAddress, {
+        val endpointParams = new UcpEndpointParams().setPeerErrorHandlingMode()
+          .setSocketAddress(desAddress).sendClientId()
+          .setErrorHandler(new UcpEndpointErrorHandler() {
+            override def onError(ep: UcpEndpoint, status: Int, errorMsg: String): Unit = {
+              logError(s"Endpoint to $executorId got an error: $errorMsg")
+              dpuAddress.remove(desAddress)
+            }
+          }).setName(s"Endpoint to DPU/$desAddress")
 
-      // No need to send anything here
-      // ep.sendAmNonBlocking(0, UcxUtils.getAddress(header), UnsafeUtils.LONG_SIZE,
-      //   UcxUtils.getAddress(workerAddress), workerAddress.capacity().toLong, UcpConstants.UCP_AM_SEND_FLAG_EAGER,
-      //   new UcxCallback() {
-      //     override def onSuccess(request: UcpRequest): Unit = {
-      //       logDebug("LEO sent AM header and worker address")
-      //       header.clear()
-      //       workerAddress.clear()
-      //     }
-      //   }, MEMORY_TYPE.UCS_MEMORY_TYPE_HOST)
-      // flushRequests.add(ep.flushNonBlocking(null))
-      ep
+        logDebug(s"Worker $this connecting to DPU($desAddress)")
+        val ep = worker.newEndpoint(endpointParams)
+        val header = Platform.allocateDirectBuffer(UnsafeUtils.LONG_SIZE)
+        header.putLong(id)
+        header.rewind()
+        val workerAddress = worker.getAddress
+        ep
+      })
     })
   }
 
