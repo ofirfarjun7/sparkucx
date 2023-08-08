@@ -44,8 +44,7 @@ class NvkvShuffleExecutorComponents(val sparkConf: SparkConf, getTransport: () =
       new CommonUtils.CommonUtilsTimeoutException(s"Got timeout when polling"), 10)
 
     transport = getTransport()
-    val resultBufferAllocator = (size: Long) => transport.hostBounceBufferMemoryPool.get(size)
-    transport.initExecuter(blockManager.blockManagerId.executorId.toLong, resultBufferAllocator)
+    transport.initExecuter(blockManager.blockManagerId.executorId.toLong)
     transport.progress()
   }
 

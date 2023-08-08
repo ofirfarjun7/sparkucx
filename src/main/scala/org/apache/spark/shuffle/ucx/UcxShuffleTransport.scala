@@ -279,9 +279,9 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
       .fetchBlocksByBlockIds(executorId, blockIds, resultBufferAllocator, callbacks, amRecvStartCb)
   }
 
-  def initExecuter(executorId: ExecutorId, resultBufferAllocator: BufferAllocator): Request = {
+  def initExecuter(executorId: ExecutorId): Request = {
     allocatedClientWorkers((Thread.currentThread().getId % allocatedClientWorkers.length).toInt)
-      .initExecuter(executorId, nvkvWrapper, resultBufferAllocator, (result: OperationResult) => {logDebug("Init executer in UCX")})
+      .initExecuter(executorId, nvkvWrapper, (result: OperationResult) => {logDebug("Init executer in UCX")})
   }
 
   def commitBlock(executorId: ExecutorId, resultBufferAllocator: BufferAllocator, 

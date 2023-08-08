@@ -279,21 +279,18 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
   }
 
   def initExecuter(executorId: transport.ExecutorId, nvkvWrapper: NvkvWrapper,
-                resultBufferAllocator: transport.BufferAllocator,
                 callback: OperationCallback): Request = {
     val startTime = System.nanoTime()
     val ep = getConnection(executorId)
     val t = tag.incrementAndGet()
     val length = nvkvWrapper.pack.capacity()
 
-    // val buffer = Platform.allocateDirectBuffer(length).order(ByteOrder.nativeOrder())
     val buffer = Platform.allocateDirectBuffer(length)
     buffer.put(nvkvWrapper.pack)
     buffer.rewind()
 
 
     val request = new UcxRequest(null, new UcxStats())
-    // requestData.put(t, (Seq(callback), request, resultBufferAllocator))
 
     val address = UnsafeUtils.getAdress(buffer)
     logDebug(s"Sending message to init executer $executorId with length $length")
