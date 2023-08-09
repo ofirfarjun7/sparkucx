@@ -76,14 +76,12 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
   with Logging {
   @volatile private var initialized: Boolean = false
   private[ucx] var ucxContext: UcpContext = _
-  private var globalWorker: UcpWorker = _
+  private var globalWorker: UcxWorkerWrapper = _
   // private var listener: UcpListener = _
   private val ucpWorkerParams = new UcpWorkerParams().requestThreadSafety()
   val endpoints = mutable.Set.empty[UcpEndpoint]
   val executorAddresses = new TrieMap[ExecutorId, ByteBuffer]
   var nvkvWrapper: NvkvWrapper = null
-
-  private var allocatedClientWorkers: Array[UcxWorkerWrapper] = _
 
   //TODO - Check why Peter chose TrieMap to store the reduce blocks info
   private val registeredBlocks = new TrieMap[BlockId, Block]
@@ -104,18 +102,13 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
   }
 
   def connectToLocalDpu(): Unit = {
-    val address = new InetSocketAddress(DpuUtils.getLocalDpuAddress, 1338)
-    logDebug(s"LEO Connecting to local DPU at $address")
+    val dpuAddress = DpuUtils.getLocalDpuAddress().getBytes(StandardCharsets.UTF_8)
+    val address = SerializationUtils.serializeInetAddress(new InetSocketAddress(DpuUtils.getLocalDpuAddress(), 1338))
 
-    val endpointParams = new UcpEndpointParams().setPeerErrorHandlingMode()
-        .setSocketAddress(address).sendClientId()
-        .setErrorHandler(new UcpEndpointErrorHandler() {
-          override def onError(ep: UcpEndpoint, status: Int, errorMsg: String): Unit = {
-            logError(s"Endpoint to local DPU $address got an error: $errorMsg")
-          }
-        }).setName(s"Endpoint to local DPU $address")
-
-    localDpuEp = globalWorker.newEndpoint(endpointParams)
+    addExecutor(executorId, address)
+    globalWorker
+      .sendNvkvCtxToDpu(executorId, nvkvWrapper,
+        (result: OperationResult) => {logDebug("Sent NVKV Ctx to DPU")})
   }
 
   def getNvkvWrapper: NvkvWrapper = nvkvWrapper
@@ -143,29 +136,12 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
     }
 
     ucxContext = new UcpContext(params)
-    globalWorker = ucxContext.newWorker(ucpWorkerParams)
     hostBounceBufferMemoryPool = new UcxHostBounceBuffersPool(ucxShuffleConf, ucxContext)
 
     nvkvWrapper = NvkvWrapper.getNvkv(ucxContext, 1)
-
-    // progressThread = new GlobalWorkerRpcThread(globalWorker, this)
-    // progressThread.start()
-
-    allocatedClientWorkers = new Array[UcxWorkerWrapper](ucxShuffleConf.numWorkers)
-    logInfo(s"Allocating ${ucxShuffleConf.numWorkers} client workers")
-    for (i <- 0 until ucxShuffleConf.numWorkers) {
-      val clientId: Long = ((i.toLong + 1L) << 32) | executorId
-      ucpWorkerParams.setClientId(clientId)
-      val worker = ucxContext.newWorker(ucpWorkerParams)
-      allocatedClientWorkers(i) = UcxWorkerWrapper(worker, this, clientId)
-    }
-
-    val dpuAddress = DpuUtils.getLocalDpuAddress().getBytes(StandardCharsets.UTF_8)
-    val address = SerializationUtils.serializeInetAddress(new InetSocketAddress(DpuUtils.getLocalDpuAddress(), 1338))
-    addExecutor(executorId, address)
-    preConnect()
-    initExecuter(executorId)
-    progress()
+    val worker = ucxContext.newWorker(ucpWorkerParams)
+    globalWorker = UcxWorkerWrapper(worker, this, 0)
+    connectToLocalDpu()
 
     initialized = true
     logDebug("LEO init UcxShuffleTransport done")
@@ -180,8 +156,6 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
       endpoints.clear()
 
       hostBounceBufferMemoryPool.close()
-
-      allocatedClientWorkers.foreach(_.close())
 
       if (progressThread != null) {
         progressThread.interrupt()
@@ -207,10 +181,8 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
   override def addExecutor(executorId: ExecutorId, dpuSockAddress: ByteBuffer): Unit = {
     logDebug("LEO adding executor " + executorId)
     executorAddresses.put(executorId, dpuSockAddress)
-    allocatedClientWorkers.foreach(w => {
-      w.getConnection(executorId)
-      w.progressConnect()
-    })
+    globalWorker.getConnection(executorId)
+    globalWorker.progressConnect()
   }
 
   def addExecutors(executorIdsToAddress: Map[ExecutorId, SerializableDirectBuffer]): Unit = {
@@ -223,7 +195,7 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
   }
 
   def preConnect(): Unit = {
-    allocatedClientWorkers.foreach(_.preconnect())
+    globalWorker.preconnect()
   }
 
   /**
@@ -283,47 +255,16 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
                                      resultBufferAllocator: BufferAllocator,
                                      callbacks: Seq[OperationCallback],
                                      amRecvStartCb: () => Unit): Seq[Request] = {
-    allocatedClientWorkers((Thread.currentThread().getId % allocatedClientWorkers.length).toInt)
+    globalWorker
       .fetchBlocksByBlockIds(executorId, blockIds, resultBufferAllocator, callbacks, amRecvStartCb)
-  }
-
-  def initExecuter(executorId: ExecutorId): Request = {
-    allocatedClientWorkers((Thread.currentThread().getId % allocatedClientWorkers.length).toInt)
-      .initExecuter(executorId, nvkvWrapper, (result: OperationResult) => {logDebug("Init executer in UCX")})
   }
 
   def commitBlock(executorId: ExecutorId, resultBufferAllocator: BufferAllocator, 
                   packMapperData: ByteBuffer): Request = {
     logDebug(s"LEO commitBlock threadId ${Thread.currentThread().getId}")
-    allocatedClientWorkers((Thread.currentThread().getId % allocatedClientWorkers.length).toInt)
+    globalWorker
       .commitBlock(executorId, nvkvWrapper, resultBufferAllocator, packMapperData, (result: OperationResult) => {logDebug("Init executer in UCX")})
   }
-
-  // def connectServerWorkers(executorId: ExecutorId, workerAddress: ByteBuffer): Unit = {
-  //   executorAddresses.put(executorId, workerAddress)
-  //   allocatedServerWorkers.foreach(w => w.connectByWorkerAddress(executorId, workerAddress))
-  // }
-
-  def handleFetchBlockRequest(replyTag: Int, amData: UcpAmData, replyExecutor: Long): Unit = {
-    // logDebug(s"LEO transport handleFetchBlockRequest")
-    // val buffer = UnsafeUtils.getByteBufferView(amData.getDataAddress, amData.getLength.toInt)
-    // val blockIds = mutable.ArrayBuffer.empty[BlockId]
-
-    // // 1. Deserialize blockIds from header
-    // while (buffer.remaining() > 0) {
-    //   val blockId = UcxShuffleBockId.deserialize(buffer)
-    //   if (!registeredBlocks.contains(blockId)) {
-    //     throw new UcxException(s"$blockId is not registered")
-    //   }
-    //   blockIds += blockId
-    // }
-
-    // val blocks = blockIds.map(bid => registeredBlocks(bid))
-    // amData.close()
-    // allocatedServerWorkers((Thread.currentThread().getId % allocatedServerWorkers.length).toInt)
-    //   .handleFetchBlockRequest(blocks, replyTag, replyExecutor)
-  }
-
 
   /**
    * Progress outstanding operations. This routine is blocking (though may poll for event).
@@ -333,10 +274,10 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
    * But not guaranteed that at least one [[ fetchBlocksByBlockIds ]] completed!
    */
   override def progress(): Unit = {
-    allocatedClientWorkers((Thread.currentThread().getId % allocatedClientWorkers.length).toInt).progress()
+    globalWorker.progress()
   }
 
   def progressConnect(): Unit = {
-    allocatedClientWorkers.par.foreach(_.progressConnect())
+    globalWorker.progressConnect()
   }
 }

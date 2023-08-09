@@ -274,11 +274,11 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
       }
     }, MEMORY_TYPE.UCS_MEMORY_TYPE_HOST)
 
-    worker.progress()
+    progress()
     Seq(request)
   }
 
-  def initExecuter(executorId: transport.ExecutorId, nvkvWrapper: NvkvWrapper,
+  def sendNvkvCtxToDpu(executorId: transport.ExecutorId, nvkvWrapper: NvkvWrapper,
                 callback: OperationCallback): Request = {
     val startTime = System.nanoTime()
     val ep = getConnection(executorId)
@@ -308,7 +308,6 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
         }
      }, MEMORY_TYPE.UCS_MEMORY_TYPE_HOST)
 
-    worker.progress()
     CommonUtils.safePolling(() => {progress()},
       () => {!connectToRemoteNvkv}, 
       10*1000,
@@ -348,7 +347,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
         }
      }, MEMORY_TYPE.UCS_MEMORY_TYPE_HOST)
 
-    worker.progress()
+    progress()
     request
   }
 
