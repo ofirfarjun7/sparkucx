@@ -14,6 +14,7 @@ import org.openucx.jucx.UcxException
 import org.openucx.jucx.ucp._
 import org.openucx.jucx.ucs.UcsConstants
 
+import java.nio.charset.StandardCharsets
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import scala.collection.concurrent.TrieMap
@@ -158,6 +159,13 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
       val worker = ucxContext.newWorker(ucpWorkerParams)
       allocatedClientWorkers(i) = UcxWorkerWrapper(worker, this, clientId)
     }
+
+    val dpuAddress = DpuUtils.getLocalDpuAddress().getBytes(StandardCharsets.UTF_8)
+    val address = SerializationUtils.serializeInetAddress(new InetSocketAddress(DpuUtils.getLocalDpuAddress(), 1338))
+    addExecutor(executorId, address)
+    preConnect()
+    initExecuter(executorId)
+    progress()
 
     initialized = true
     logDebug("LEO init UcxShuffleTransport done")

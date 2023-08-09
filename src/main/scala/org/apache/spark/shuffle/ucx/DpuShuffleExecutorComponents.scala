@@ -42,10 +42,6 @@ class NvkvShuffleExecutorComponents(val sparkConf: SparkConf, getTransport: () =
     CommonUtils.safePolling(() => {},
       () => {getTransport() == null}, 10*1000,
       new CommonUtils.CommonUtilsTimeoutException(s"Got timeout when polling"), 10)
-
-    transport = getTransport()
-    transport.initExecuter(blockManager.blockManagerId.executorId.toLong)
-    transport.progress()
   }
 
   override def createMapOutputWriter(shuffleId: Int, mapTaskId: Long, numPartitions: Int) = {

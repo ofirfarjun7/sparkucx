@@ -81,13 +81,6 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
     val driverEndpoint = RpcUtils.makeDriverRef(driverRpcName, conf, rpcEnv)
     logInfo(s"LEO startUcxTransport sending RPC IntroduceAllExecutors")
 
-    val dpuAddress = DpuUtils.getLocalDpuAddress().getBytes(StandardCharsets.UTF_8)
-    val address = ByteBuffer.allocateDirect(dpuAddress.length + 4)
-    address.putInt(1338)
-    address.put(dpuAddress)
-    transport.addExecutor(blockManager.executorId.toLong, address)
-    transport.preConnect()
-
     var sockAddress = new InetSocketAddress(DpuUtils.getLocalDpuAddress(), 1338)
     logInfo(s"LEO sockAddress ${sockAddress} host ${sockAddress.getHostName} address ${sockAddress.getAddress}")
     driverEndpoint.ask[IntroduceAllExecutors](ExecutorAdded(blockManager.executorId.toLong, endpoint,
