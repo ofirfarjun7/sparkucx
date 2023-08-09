@@ -24,7 +24,6 @@ object DpuUtils extends Logging {
         val section = ini.get("dpu")
         val hostname = java.net.InetAddress.getLocalHost.getHostName.split("\\.")(0)
         val dpuAddress = section.get(hostname)
-        logDebug(s"LEO hostname: $hostname dpuAddress $dpuAddress")
 
         dpuAddress
     }

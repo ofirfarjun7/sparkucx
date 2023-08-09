@@ -103,6 +103,7 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
 
   def connectToLocalDpu(): Unit = {
     val dpuAddress = DpuUtils.getLocalDpuAddress().getBytes(StandardCharsets.UTF_8)
+    logDebug(s"LEO Connecting to local DPU at $dpuAddress")
     val address = SerializationUtils.serializeInetAddress(new InetSocketAddress(DpuUtils.getLocalDpuAddress(), 1338))
 
     addExecutor(executorId, address)
@@ -263,7 +264,8 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
                   packMapperData: ByteBuffer): Request = {
     logDebug(s"LEO commitBlock threadId ${Thread.currentThread().getId}")
     globalWorker
-      .commitBlock(executorId, nvkvWrapper, resultBufferAllocator, packMapperData, (result: OperationResult) => {logDebug("Init executer in UCX")})
+      .commitBlock(executorId, nvkvWrapper, resultBufferAllocator,
+        packMapperData, (result: OperationResult) => {logDebug("Init executer in UCX")})
   }
 
   /**
