@@ -50,14 +50,20 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
     }
   }
 
-  nvkvLogDebug(s"LEO NvkvWrapper constructor")
+  logDebug(s"LEO NvkvWrapper constructor")
   try {
     Nvkv.init("mlx5_0", nvkvLogEnabled, (1 << executerId).toHexString) 
   } catch {
     case e: NvkvException => logDebug(s"LEO NvkvWrapper: Failed to init nvkv")
   }
 
-  val ds: Array[Nvkv.DataSet] = Nvkv.query()
+  // TODO - remove this when nvkv_query issue is solved
+  // Be advised to check node config for changes in slots of nvme devices
+  val ds: Array[Nvkv.DataSet] = Array(new Nvkv.DataSet("0000:a1:00.0", 1), new Nvkv.DataSet("0000:e2:00.0", 1))
+  ds(0).size = 1600321314816L
+  ds(1).size = 1600321314816L
+  nvkvLogDebug(s"ds(0) pciAddr ${ds(0).pciAddr} nsid ${ds(0).nsid} size ${ds(0).size}")
+  nvkvLogDebug(s"ds(1) pciAddr ${ds(1).pciAddr} nsid ${ds(1).nsid} size ${ds(1).size}")
   if (ds.length == 0) throw new NvkvException("Failed to detect nvkv device!")
 
   try {
@@ -109,7 +115,7 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
 
   nvkvLogDebug(s"LEO NvkvWrapper: packedNvkv nvkvCtx ${nvkvCtx} nvkvCtxSize ${nvkvCtxSize} bb ${UnsafeUtils.getAdress(nvkvRemoteReadBuffer)}")
   nvkvLogDebug(s"LEO NvkvWrapper: packedNvkv packData capacity ${mkeyBuffer.capacity()} packData limit ${mkeyBuffer.limit()}")
-  nvkvLogDebug(s"LEO NvkvWrapper: Finish init NVKV")
+  logDebug(s"LEO NvkvWrapper: Finish init NVKV")
 
   // TODO - store bb in array not ListBuffer
   // To be used when fetching local blocks using DPU - no need to transfer data just bb idx
