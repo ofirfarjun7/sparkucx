@@ -23,7 +23,9 @@ object CommonUtils extends Logging {
 
       while (pollCond()) {
         if (deadline.isOverdue()) {
-          throw new CommonUtilsTimeoutException(eMsg)
+          if (eMsg != null) {
+            throw new CommonUtilsTimeoutException(eMsg)
+          }
         }
 
         poll()
