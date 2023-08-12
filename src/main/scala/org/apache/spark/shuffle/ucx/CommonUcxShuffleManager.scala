@@ -47,7 +47,7 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
     override def run(): Unit = {
       CommonUtils.safePolling(() => {},
       () => {SparkEnv.get == null}, 10*1000,
-      new CommonUtils.CommonUtilsTimeoutException(s"Got timeout when polling"), 10)
+      "Got timeout when polling", 10)
 
       if (isDriver) {
         val rpcEnv = SparkEnv.get.rpcEnv
@@ -57,7 +57,7 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
       } else {
         CommonUtils.safePolling(() => {},
           () => {SparkEnv.get.blockManager.blockManagerId == null}, 10*1000,
-          new CommonUtils.CommonUtilsTimeoutException(s"Got timeout when polling"), 5)
+          "Got timeout when polling", 5)
         startUcxTransport()
       }
     }

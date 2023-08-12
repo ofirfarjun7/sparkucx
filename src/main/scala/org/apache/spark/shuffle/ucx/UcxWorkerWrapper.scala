@@ -210,7 +210,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
     CommonUtils.safePolling(() => {},
       () => {!transport.executorAddresses.contains(executorId)}, 
       transport.ucxShuffleConf.getSparkConf.getTimeAsMs("spark.network.timeout", "100"),
-      new UcxException(s"RPC timeout - Waiting for DPU address for $executorId"))
+      s"RPC timeout - Waiting for DPU address for $executorId")
 
     connections.getOrElseUpdate(executorId,  {
       val address = transport.executorAddresses(executorId)
@@ -311,7 +311,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
     CommonUtils.safePolling(() => {progress()},
       () => {!connectToRemoteNvkv}, 
       10*1000,
-      new UcxException(s"Connect to remote $address failed"))
+      s"Connect to remote $address failed")
     request
   }
 
@@ -399,7 +399,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
 
     CommonUtils.safePolling(() => {progress()},
       () => {!req.isCompleted}, 10*1000,
-      new UcxException(s"Failed when sending fetch block request"))
+      s"Failed when sending fetch block request")
   } catch {
     case ex: Throwable => logError(s"Failed to read and send data: $ex")
   }

@@ -10,7 +10,7 @@ import org.ini4j.Ini
 
 object CommonUtils extends Logging {
     
-    class CommonUtilsTimeoutException(s:String) extends Exception(s){}
+    private class CommonUtilsTimeoutException(s:String) extends Exception(s){}
 
     /**
       * Perform polling up to timeLimit
@@ -18,12 +18,12 @@ object CommonUtils extends Logging {
       * @return
       */
     def safePolling(poll: () => Unit, pollCond: () => Boolean = () => {false}, timeLimit: Long = 10000,
-      e: Exception = new CommonUtilsTimeoutException(s"Got timeout when polling"), sleep: Long = 0) {
+      eMsg: String = "Got timeout when polling", sleep: Long = 0) {
       val deadline = timeLimit.millis.fromNow
 
       while (pollCond()) {
         if (deadline.isOverdue()) {
-          throw e
+          throw new CommonUtilsTimeoutException(eMsg)
         }
 
         poll()

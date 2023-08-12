@@ -27,7 +27,7 @@ class UcxLocalDiskShuffleExecutorComponents(sparkConf: SparkConf)
     val ucxShuffleManager = SparkEnv.get.shuffleManager.asInstanceOf[UcxShuffleManager]
     CommonUtils.safePolling(() => {},
       () => {ucxShuffleManager.ucxTransport == null}, 10*1000,
-      new CommonUtils.CommonUtilsTimeoutException(s"Got timeout when polling"), 5)
+      "Got timeout when polling", 5)
 
     blockResolver = ucxShuffleManager.shuffleBlockResolver
   }
