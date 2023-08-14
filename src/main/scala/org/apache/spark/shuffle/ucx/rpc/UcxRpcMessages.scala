@@ -10,6 +10,21 @@ import org.apache.spark.shuffle.ucx.utils.SerializableDirectBuffer
 
 object UcxRpcMessages {
   /**
+   * Called from executor to request Nvkv lock.
+   */
+  case class NvkvRequestLock(executorId: Long, execEp: RpcEndpointRef)
+  
+  /**
+   * Called from executor to release Nvkv lock.
+   */
+  case class NvkvReleaseLock(executorId: Long)
+
+  /**
+   * Reply from driver when lock is given to pending executer.
+   */
+  case class NvkvLock(lock: Int)
+  
+  /**
    * Called from executor to driver, to introduce dpu address.
    */
   case class ExecutorAdded(executorId: Long, endpoint: RpcEndpointRef,

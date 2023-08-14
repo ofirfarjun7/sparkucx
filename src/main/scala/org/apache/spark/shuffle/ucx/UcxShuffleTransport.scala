@@ -139,13 +139,17 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
     ucxContext = new UcpContext(params)
     hostBounceBufferMemoryPool = new UcxHostBounceBuffersPool(ucxShuffleConf, ucxContext)
 
-    nvkvWrapper = NvkvWrapper.getNvkv(ucxContext, 1)
     val worker = ucxContext.newWorker(ucpWorkerParams)
     globalWorker = UcxWorkerWrapper(worker, this, 0)
+    logDebug("LEO init UcxShuffleTransport done")
+  }
+
+  def initNvkv(): Unit = {
+    nvkvWrapper = NvkvWrapper.getNvkv(ucxContext, 1)
     connectToLocalDpu()
 
     initialized = true
-    logDebug("LEO init UcxShuffleTransport done")
+    logDebug("LEO init UcxShuffleTransport Nvkv init done")
   }
 
   /**

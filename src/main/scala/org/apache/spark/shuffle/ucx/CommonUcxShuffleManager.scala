@@ -14,7 +14,7 @@ import scala.util.Success
 import org.apache.spark.rpc.RpcEnv
 import org.apache.spark.shuffle.sort.SortShuffleManager
 import org.apache.spark.shuffle.ucx.rpc.{UcxDriverRpcEndpoint, UcxExecutorRpcEndpoint}
-import org.apache.spark.shuffle.ucx.rpc.UcxRpcMessages.{ExecutorAdded, IntroduceAllExecutors}
+import org.apache.spark.shuffle.ucx.rpc.UcxRpcMessages.{ExecutorAdded, IntroduceAllExecutors, NvkvRequestLock}
 import org.apache.spark.shuffle.ucx.utils.{SerializableDirectBuffer, SerializationUtils, DpuUtils}
 import org.apache.spark.shuffle.utils.{UnsafeUtils, CommonUtils}
 import org.apache.spark.util.{RpcUtils, ThreadUtils}
@@ -42,6 +42,7 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
   logDebug("LEO CommonUcxShuffleManager")
 
   def getTransport(): UcxShuffleTransport = { ucxTransport }
+  def setTransport(transport: UcxShuffleTransport): Unit = { ucxTransport = transport }
 
   setupThread.submit(new Runnable {
     override def run(): Unit = {
@@ -74,11 +75,13 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
 
     val rpcEnv = RpcEnv.create("ucx-rpc-env", blockManager.host, blockManager.port,
       conf, new SecurityManager(conf), clientMode = false)
-    executorEndpoint = new UcxExecutorRpcEndpoint(rpcEnv, transport, setupThread)
+    val driverEndpoint = RpcUtils.makeDriverRef(driverRpcName, conf, rpcEnv)
+
+    executorEndpoint = new UcxExecutorRpcEndpoint(rpcEnv, transport, setupThread,
+        ucxTransport, driverEndpoint, blockManager.executorId.toLong, setTransport)
     val endpoint = rpcEnv.setupEndpoint(
       s"ucx-shuffle-executor-${blockManager.executorId}",
       executorEndpoint)
-    val driverEndpoint = RpcUtils.makeDriverRef(driverRpcName, conf, rpcEnv)
     logInfo(s"LEO startUcxTransport sending RPC IntroduceAllExecutors")
 
     var sockAddress = new InetSocketAddress(DpuUtils.getLocalDpuAddress(), 1338)
@@ -89,9 +92,9 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
         case Success(msg) =>
           logInfo(s"Receive reply $msg")
           executorEndpoint.receive(msg)
-    }
+      }
 
-    ucxTransport = transport
+    driverEndpoint.send(NvkvRequestLock(blockManager.executorId.toLong, endpoint))
   }
 
 
