@@ -59,14 +59,16 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
     case e: NvkvException => logDebug(s"LEO NvkvWrapper: Failed to init nvkv")
   }
 
-  // TODO - remove this when nvkv_query issue is solved
-  // Be advised to check node config for changes in slots of nvme devices
-  val ds: Array[Nvkv.DataSet] = Array(new Nvkv.DataSet("0000:41:00.0", 1), new Nvkv.DataSet("0000:a1:00.0", 1))
-  ds(0).size = 1600321314816L
-  ds(1).size = 1600321314816L
-  nvkvLogDebug(s"ds(0) pciAddr ${ds(0).pciAddr} nsid ${ds(0).nsid} size ${ds(0).size}")
-  nvkvLogDebug(s"ds(1) pciAddr ${ds(1).pciAddr} nsid ${ds(1).nsid} size ${ds(1).size}")
-  if (ds.length == 0) throw new NvkvException("Failed to detect nvkv device!")
+  var ds: Array[Nvkv.DataSet] =
+  try {
+    Nvkv.query()
+  } catch {
+    case e: NvkvException => {
+        logDebug(s"LEO NvkvWrapper: Failed to query for nvme")
+        Array()
+      }
+  }
+  if (ds.length == 0) throw new NvkvException("Failed to detect nvme device!")
 
   try {
     nvkv = Nvkv.open(ds, Nvkv.LOCAL|Nvkv.REMOTE)
