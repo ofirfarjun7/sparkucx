@@ -51,10 +51,9 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
     }
   }
 
-
-  logDebug(s"LEO NvkvWrapper constructor cpu_mask ${core_mask}")
+  logDebug(s"LEO NvkvWrapper constructor cpu_mask ${(1 << (executerId-1)).toHexString}")
   try {
-    Nvkv.init("mlx5_0", nvkvLogEnabled, core_mask) 
+    Nvkv.init("mlx5_0", 0, (1 << (executerId-1)).toHexString) 
   } catch {
     case e: NvkvException => logDebug(s"LEO NvkvWrapper: Failed to init nvkv")
   }
