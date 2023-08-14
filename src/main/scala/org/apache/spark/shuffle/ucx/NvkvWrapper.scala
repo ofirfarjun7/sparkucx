@@ -43,6 +43,7 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
   val nvkvLogEnabled = SparkEnv.get.conf.getInt("spark.nvkvLogs.enabled", 0)
   val blockManager = SparkEnv.get.blockManager.blockManagerId
   val executerId = blockManager.executorId.toInt
+  var core_mask = (1 << (executerId-1)).toHexString
 
   private def nvkvLogDebug(msg: => String) {
     if (nvkvLogEnabled == 1) {
@@ -50,16 +51,17 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
     }
   }
 
-  logDebug(s"LEO NvkvWrapper constructor")
+
+  logDebug(s"LEO NvkvWrapper constructor cpu_mask ${core_mask}")
   try {
-    Nvkv.init("mlx5_0", nvkvLogEnabled, (1 << executerId).toHexString) 
+    Nvkv.init("mlx5_0", nvkvLogEnabled, core_mask) 
   } catch {
     case e: NvkvException => logDebug(s"LEO NvkvWrapper: Failed to init nvkv")
   }
 
   // TODO - remove this when nvkv_query issue is solved
   // Be advised to check node config for changes in slots of nvme devices
-  val ds: Array[Nvkv.DataSet] = Array(new Nvkv.DataSet("0000:a1:00.0", 1), new Nvkv.DataSet("0000:e2:00.0", 1))
+  val ds: Array[Nvkv.DataSet] = Array(new Nvkv.DataSet("0000:41:00.0", 1), new Nvkv.DataSet("0000:a1:00.0", 1))
   ds(0).size = 1600321314816L
   ds(1).size = 1600321314816L
   nvkvLogDebug(s"ds(0) pciAddr ${ds(0).pciAddr} nsid ${ds(0).nsid} size ${ds(0).size}")
