@@ -211,13 +211,14 @@ final class ShuffleBlockFetcherIterator(
       val result = iter.next()
       result match {
         case SuccessFetchResult(_, _, address, _, buf, _) =>
-          if (address != blockManager.blockManagerId) {
-            shuffleMetrics.incRemoteBytesRead(buf.size)
-            if (buf.isInstanceOf[FileSegmentManagedBuffer]) {
-              shuffleMetrics.incRemoteBytesReadToDisk(buf.size)
-            }
-            shuffleMetrics.incRemoteBlocksFetched(1)
+          // TODO - revert in final version
+          // if (address != blockManager.blockManagerId) {
+          // }
+          shuffleMetrics.incRemoteBytesRead(buf.size)
+          if (buf.isInstanceOf[FileSegmentManagedBuffer]) {
+            shuffleMetrics.incRemoteBytesReadToDisk(buf.size)
           }
+          shuffleMetrics.incRemoteBlocksFetched(1)
           buf.release()
         case _ =>
       }
@@ -294,27 +295,34 @@ final class ShuffleBlockFetcherIterator(
       blockManager.hostLocalDirManager != null && blockManager.hostLocalDirManager.isDefined
 
     for ((address, blockInfos) <- blocksByAddress) {
-      if (address.executorId == blockManager.blockManagerId.executorId) {
-        checkBlockSizes(blockInfos)
-        val mergedBlockInfos = mergeContinuousShuffleBlockIdsIfNeeded(
-          blockInfos.map(info => FetchBlockInfo(info._1, info._2, info._3)), doBatchFetch)
-        numBlocksToFetch += mergedBlockInfos.size
-        localBlocks ++= mergedBlockInfos.map(info => (info.blockId, info.mapIndex))
-        localBlockBytes += mergedBlockInfos.map(_.size).sum
-      } else if (hostLocalDirReadingEnabled && address.host == blockManager.blockManagerId.host) {
-        checkBlockSizes(blockInfos)
-        val mergedBlockInfos = mergeContinuousShuffleBlockIdsIfNeeded(
-          blockInfos.map(info => FetchBlockInfo(info._1, info._2, info._3)), doBatchFetch)
-        numBlocksToFetch += mergedBlockInfos.size
-        val blocksForAddress =
-          mergedBlockInfos.map(info => (info.blockId, info.size, info.mapIndex))
-        hostLocalBlocksByExecutor += address -> blocksForAddress
-        hostLocalBlocks ++= blocksForAddress.map(info => (info._1, info._3))
-        hostLocalBlockBytes += mergedBlockInfos.map(_.size).sum
-      } else {
+      // TODO - revert in final version
+      // This patch is require to treat all blocks as remote blocks until we
+      // improve the implementation of local blocks read.
+      // we do it to compare performance of remote blocks read between SparkDPU and TCP
+
+      // if (address.executorId == blockManager.blockManagerId.executorId) {
+      //   checkBlockSizes(blockInfos)
+      //   val mergedBlockInfos = mergeContinuousShuffleBlockIdsIfNeeded(
+      //     blockInfos.map(info => FetchBlockInfo(info._1, info._2, info._3)), doBatchFetch)
+      //   numBlocksToFetch += mergedBlockInfos.size
+      //   localBlocks ++= mergedBlockInfos.map(info => (info.blockId, info.mapIndex))
+      //   localBlockBytes += mergedBlockInfos.map(_.size).sum
+      // } else if (hostLocalDirReadingEnabled && address.host == blockManager.blockManagerId.host) {
+      //   checkBlockSizes(blockInfos)
+      //   val mergedBlockInfos = mergeContinuousShuffleBlockIdsIfNeeded(
+      //     blockInfos.map(info => FetchBlockInfo(info._1, info._2, info._3)), doBatchFetch)
+      //   numBlocksToFetch += mergedBlockInfos.size
+      //   val blocksForAddress =
+      //     mergedBlockInfos.map(info => (info.blockId, info.size, info.mapIndex))
+      //   hostLocalBlocksByExecutor += address -> blocksForAddress
+      //   hostLocalBlocks ++= blocksForAddress.map(info => (info._1, info._3))
+      //   hostLocalBlockBytes += mergedBlockInfos.map(_.size).sum
+      // } else {
+      //   remoteBlockBytes += blockInfos.map(_._2).sum
+      //   collectFetchRequests(address, blockInfos, collectedRemoteRequests)
+      // }
         remoteBlockBytes += blockInfos.map(_._2).sum
         collectFetchRequests(address, blockInfos, collectedRemoteRequests)
-      }
     }
     val numRemoteBlocks = collectedRemoteRequests.map(_.blocks.size).sum
     val totalBytes = localBlockBytes + remoteBlockBytes + hostLocalBlockBytes
@@ -573,20 +581,23 @@ final class ShuffleBlockFetcherIterator(
 
       result match {
         case r @ SuccessFetchResult(blockId, mapIndex, address, size, buf, isNetworkReqDone) =>
-          if (address != blockManager.blockManagerId) {
-            if (hostLocalBlocks.contains(blockId -> mapIndex)) {
-              shuffleMetrics.incLocalBlocksFetched(1)
-              shuffleMetrics.incLocalBytesRead(buf.size)
-            } else {
-              numBlocksInFlightPerAddress(address) = numBlocksInFlightPerAddress(address) - 1
-              shuffleMetrics.incRemoteBytesRead(buf.size)
-              if (buf.isInstanceOf[FileSegmentManagedBuffer]) {
-                shuffleMetrics.incRemoteBytesReadToDisk(buf.size)
-              }
-              shuffleMetrics.incRemoteBlocksFetched(1)
-              bytesInFlight -= size
-            }
+          // TODO - revert in final version
+          // if (address != blockManager.blockManagerId) {
+          //   if (hostLocalBlocks.contains(blockId -> mapIndex)) {
+          //     shuffleMetrics.incLocalBlocksFetched(1)
+          //     shuffleMetrics.incLocalBytesRead(buf.size)
+          //   } else {
+          //   }
+          // }
+          // System.err.println("iterator fetch remote")
+          numBlocksInFlightPerAddress(address) = numBlocksInFlightPerAddress(address) - 1
+          shuffleMetrics.incRemoteBytesRead(buf.size)
+          if (buf.isInstanceOf[FileSegmentManagedBuffer]) {
+            shuffleMetrics.incRemoteBytesReadToDisk(buf.size)
           }
+          shuffleMetrics.incRemoteBlocksFetched(1)
+          bytesInFlight -= size
+
           if (isNetworkReqDone) {
             reqsInFlight -= 1
             logDebug("Number of requests in flight " + reqsInFlight)
