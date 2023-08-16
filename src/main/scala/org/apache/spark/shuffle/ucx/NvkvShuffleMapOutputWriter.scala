@@ -37,6 +37,7 @@ import org.apache.spark.shuffle.api.WritableByteChannelWrapper
 import org.apache.spark.shuffle.IndexShuffleBlockResolver
 import org.apache.spark.util.Utils
 import org.apache.spark.shuffle.ucx
+import org.apache.spark.shuffle.utils.CommonUtils
 
 
 /*
@@ -152,9 +153,15 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
 
     packMapperData.rewind
     val resultBufferAllocator = (size: Long) => ucxTransport.hostBounceBufferMemoryPool.get(size)
-    ucxTransport.commitBlock(executerId, resultBufferAllocator, packMapperData)
+    var commitBlock = false
+    ucxTransport.commitBlock(executerId, resultBufferAllocator,
+      packMapperData, () => {commitBlock = true})
     NvkvShuffleMapOutputWriter.log.debug("Writing shuffle index file for mapId " + mapId + " with lengths " + partitionLengths(0) + " " + partitionLengths(1))
-    ucxTransport.progress()
+    // TODO - need to find a better way yo commit blocks locations to DPU
+    // Idealy we will want to send all the locations at the end of the write stage
+    // and not during the write stage with samllest number of AM messages (1) as possible.
+    // The problem is how we can tell that we reached the last map partition.
+    CommonUtils.safePolling(() => {ucxTransport.progress()}, () => {!commitBlock})
     partitionLengths
   }
 

@@ -316,7 +316,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
 
     def commitBlock(executorId: transport.ExecutorId, nvkvWrapper: NvkvWrapper,
                 resultBufferAllocator: transport.BufferAllocator, packMapperData: ByteBuffer,
-                callback: OperationCallback): Request = {
+                sendCompleteCB: () => Unit): Request = {
     val startTime = System.nanoTime()
     val ep = getConnection(executorId)
     val t = tag.incrementAndGet()
@@ -337,6 +337,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
       UcpConstants.UCP_AM_SEND_FLAG_EAGER | UcpConstants.UCP_AM_SEND_FLAG_REPLY, new UcxCallback() {
        override def onSuccess(request: UcpRequest): Unit = {
          buffer.clear()
+         sendCompleteCB()
          logDebug(s"Sent message on $ep to $executorId to ini executer" +
            s"in ${System.nanoTime() - startTime}ns")
        }

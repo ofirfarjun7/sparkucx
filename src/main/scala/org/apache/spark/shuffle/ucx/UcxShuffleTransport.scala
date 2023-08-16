@@ -265,11 +265,11 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
   }
 
   def commitBlock(executorId: ExecutorId, resultBufferAllocator: BufferAllocator, 
-                  packMapperData: ByteBuffer): Request = {
+                  packMapperData: ByteBuffer, sendCompleteCB: () => Unit): Request = {
     logDebug(s"LEO commitBlock threadId ${Thread.currentThread().getId}")
     globalWorker
       .commitBlock(executorId, nvkvWrapper, resultBufferAllocator,
-        packMapperData, (result: OperationResult) => {logDebug("Init executer in UCX")})
+        packMapperData, sendCompleteCB)
   }
 
   /**
