@@ -87,8 +87,6 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
       buf.get(bytes);
       transport.getNvkvWrapper.connectToRemote(bytes)
       connectToRemoteNvkv = true
-    } else {
-      logDebug(s"LEO InitExecutorAck handler Invalid data!!!")  
     }
 
     logDebug(s"LEO Connected to remote nvkv on DPU")

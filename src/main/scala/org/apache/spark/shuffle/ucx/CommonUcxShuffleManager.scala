@@ -39,7 +39,7 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
 
   private val setupThread = ThreadUtils.newDaemonSingleThreadExecutor("UcxTransportSetupThread")
 
-  logDebug("LEO CommonUcxShuffleManager")
+  logInfo("LEO CommonUcxShuffleManager")
 
   def getTransport(): UcxShuffleTransport = { ucxTransport }
   def setTransport(transport: UcxShuffleTransport): Unit = { ucxTransport = transport }

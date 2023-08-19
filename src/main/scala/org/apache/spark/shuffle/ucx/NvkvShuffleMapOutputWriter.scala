@@ -85,7 +85,7 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
                                  val ucxTransport: UcxShuffleTransport,
                                  private val blockResolver: IndexShuffleBlockResolver, 
                                  sparkConf: SparkConf) extends ShuffleMapOutputWriter {
-  NvkvShuffleMapOutputWriter.log.debug("NvkvShuffleMapOutputWriter2 ctor shuffleId " + shuffleId + " mapId " + mapId + " numPartitions " + numPartitions)
+  NvkvShuffleMapOutputWriter.log.debug(s"NvkvShuffleMapOutputWriter for shuffleId $shuffleId mapId $mapId numPartitions $numPartitions")
 
   final private var partitionLengths: Array[Long] = new Array[Long](numPartitions)
   final private var partitionsPadding: Array[Long] = new Array[Long](numPartitions)
@@ -112,12 +112,12 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
 
   @throws[IOException]
   override def getPartitionWriter(reducePartitionId: Int): ShufflePartitionWriter = {
-    NvkvShuffleMapOutputWriter.log.debug("NvkvShuffleMapOutputWriter getPartitionWriter " + reducePartitionId)
+    NvkvShuffleMapOutputWriter.log.debug(s"NvkvShuffleMapOutputWriter getPartitionWriter for reducePartition $reducePartitionId")
     if (reducePartitionId <= lastPartitionId) throw new IllegalArgumentException("Partitions should be requested in increasing order.")
     lastPartitionId = reducePartitionId
     currChannelPosition = getBlockOffset + bytesWrittenToMergedFile + totalPartitionsPadding
     dsIdx = NvkvRandomDevice.getDeviceId(nvkvWrapper.getNumOfDevices)
-    NvkvShuffleMapOutputWriter.log.debug("NvkvShuffleMapOutputWriter currChannelPosition " + currChannelPosition)
+    NvkvShuffleMapOutputWriter.log.debug(s"NvkvShuffleMapOutputWriter reducePartition offset $currChannelPosition")
     new NvkvShufflePartitionWriter(reducePartitionId)
   }
 
@@ -144,8 +144,7 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     partitionLengths.zip(0 until partitionLengths.size).foreach{ 
         case (partitionLength, reduceId) => {
             NvkvShuffleMapOutputWriter.log.debug(s"shuffleId $shuffleId mapId $mapId reducerId $reduceId offset $blockOffset size $partitionLength")
-            NvkvShuffleMapOutputWriter.log.debug(s"padding ${partitionsPadding(reduceId)} offset ${nvkvWrapper.getPartitonOffset(shuffleId, mapId, reduceId)} length ${nvkvWrapper.getPartitonLength(shuffleId, mapId, reduceId)}")
-            NvkvShuffleMapOutputWriter.log.debug(s"Send DPU AM: shuffleId $shuffleId mapId $mapId reducerId $reduceId offset ${nvkvWrapper.getPartitonOffset(shuffleId, mapId, reduceId)} size ${nvkvWrapper.getPartitonLength(shuffleId, mapId, reduceId)}")
+            NvkvShuffleMapOutputWriter.log.debug(s"Reduce partition stats: offset ${nvkvWrapper.getPartitonOffset(shuffleId, mapId, reduceId)} length ${nvkvWrapper.getPartitonLength(shuffleId, mapId, reduceId)} padding ${partitionsPadding(reduceId)}")
             packMapperData.putLong(nvkvWrapper.getPartitonOffset(shuffleId, mapId, reduceId))
             packMapperData.putLong(nvkvWrapper.getPartitonLength(shuffleId, mapId, reduceId))
             blockOffset += partitionLength
@@ -155,9 +154,9 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     packMapperData.rewind
     val resultBufferAllocator = (size: Long) => ucxTransport.hostBounceBufferMemoryPool.get(size)
     var commitBlock = false
+    NvkvShuffleMapOutputWriter.log.debug(s"Sending map partition information for mapId $mapId to DPU")
     ucxTransport.commitBlock(executerId, resultBufferAllocator,
       packMapperData, () => {commitBlock = true})
-    NvkvShuffleMapOutputWriter.log.debug("Writing shuffle index file for mapId " + mapId + " with lengths " + partitionLengths(0) + " " + partitionLengths(1))
     // TODO - need to find a better way yo commit blocks locations to DPU
     // Idealy we will want to send all the locations at the end of the write stage
     // and not during the write stage with samllest number of AM messages (1) as possible.
@@ -260,8 +259,8 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
       totalPartitionsPadding += padding
       partitionsPadding(partitionId) = padding
       bytesWrittenToMergedFile += count
-      NvkvShuffleMapOutputWriter.log.debug(s"PartitionWriterStream close1 currChannelPosition ${currChannelPosition}")
-      NvkvShuffleMapOutputWriter.log.debug(s"PartitionWriterStream close1 $shuffleId,$mapId,$partitionId count $count padding $padding bytesWrittenToMergedFile $bytesWrittenToMergedFile")
+      NvkvShuffleMapOutputWriter.log.debug(s"PartitionWriterStream close currChannelPosition ${currChannelPosition}")
+      NvkvShuffleMapOutputWriter.log.debug(s"PartitionWriterStream close $shuffleId,$mapId,$partitionId count $count padding $padding bytesWrittenToMergedFile $bytesWrittenToMergedFile")
     }
 
     private def verifyNotClosed(): Unit = {

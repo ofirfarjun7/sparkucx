@@ -43,7 +43,7 @@ class UcxShuffleBlockResolver(ucxShuffleManager: CommonUcxShuffleManager)
 
     val ucxTransport: UcxShuffleTransport = shuffleManager.ucxTransport
 
-    logDebug("LEO UcxShuffleBlockResolver getBlockData")
+    logInfo("LEO UcxShuffleBlockResolver getBlockData")
     val (shuffleId, mapId, startReduceId, endReduceId) = blockId match {
       case id: ShuffleBlockId =>
         (id.shuffleId, id.mapId, id.reduceId, id.reduceId + 1)

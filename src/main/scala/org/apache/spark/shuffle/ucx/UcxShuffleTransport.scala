@@ -101,19 +101,19 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
 
   def connectToLocalDpu(): Unit = {
     val dpuAddress = DpuUtils.getLocalDpuAddress().getBytes(StandardCharsets.UTF_8)
-    logDebug(s"LEO Connecting to local DPU at $dpuAddress")
+    logInfo(s"LEO Connecting to local DPU at $dpuAddress")
     val address = SerializationUtils.serializeInetAddress(new InetSocketAddress(DpuUtils.getLocalDpuAddress(), 1338))
 
     addExecutor(executorId, address)
     globalWorker
       .sendNvkvCtxToDpu(executorId, nvkvWrapper,
-        (result: OperationResult) => {logDebug("Sent NVKV Ctx to DPU")})
+        (result: OperationResult) => {logInfo("Sent NVKV Ctx to DPU")})
   }
 
   def getNvkvWrapper: NvkvWrapper = nvkvWrapper
 
   override def init(): Unit = {
-    logDebug("LEO init UcxShuffleTransport")
+    logInfo("LEO init UcxShuffleTransport")
     if (ucxShuffleConf == null) {
       ucxShuffleConf = new UcxShuffleConf(SparkEnv.get.conf)
     }
@@ -126,7 +126,7 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
 
     val worker = ucxContext.newWorker(ucpWorkerParams)
     globalWorker = UcxWorkerWrapper(worker, this, 0)
-    logDebug("LEO init UcxShuffleTransport done")
+    logInfo("LEO init UcxShuffleTransport done")
   }
 
   def initNvkv(): Unit = {
@@ -134,7 +134,7 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
     connectToLocalDpu()
 
     initialized = true
-    logDebug("LEO init UcxShuffleTransport Nvkv init done")
+    logInfo("LEO init UcxShuffleTransport Nvkv init done")
   }
 
   /**
@@ -169,7 +169,7 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
    * connection establishment outside of UcxShuffleManager.
    */
   override def addExecutor(executorId: ExecutorId, dpuSockAddress: ByteBuffer): Unit = {
-    logDebug("LEO adding executor " + executorId)
+    logInfo("LEO adding executor " + executorId)
     executorAddresses.put(executorId, dpuSockAddress)
     globalWorker.getConnection(executorId)
     globalWorker.progressConnect()
@@ -179,7 +179,7 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
     executorIdsToAddress.foreach {
       case (executorId, address) => {
         executorAddresses.put(executorId, address.value)
-        logDebug("LEO adding executor " + executorId + " address " + address.value)
+        logInfo("LEO adding executor " + executorId + " address " + address.value)
       }
     }
   }

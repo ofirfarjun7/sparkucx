@@ -26,7 +26,7 @@ class UcxShuffleManager(override val conf: SparkConf, isDriver: Boolean)
 
   override def getWriter[K, V](handle: ShuffleHandle, mapId: ReduceId, context: TaskContext,
                                metrics: ShuffleWriteMetricsReporter): ShuffleWriter[K, V] = {
-    logDebug("LEO UcxShuffleManager getWriter")
+    logInfo("LEO UcxShuffleManager getWriter")
     val env = SparkEnv.get
     handle match {
       case unsafeShuffleHandle: SerializedShuffleHandle[K@unchecked, V@unchecked] =>
@@ -49,13 +49,13 @@ class UcxShuffleManager(override val conf: SparkConf, isDriver: Boolean)
 
   override def getReader[K, C](handle: ShuffleHandle, startPartition: MapId, endPartition: MapId,
                                context: TaskContext, metrics: ShuffleReadMetricsReporter): ShuffleReader[K, C] = {
-    logDebug("LEO UcxShuffleManager getReader")
+    logInfo("LEO UcxShuffleManager getReader")
     new UcxShuffleReader(handle.asInstanceOf[BaseShuffleHandle[K,_,C]], startPartition, endPartition,
       context, ucxTransport, readMetrics = metrics, shouldBatchFetch = false)
   }
 
   private def loadShuffleExecutorComponents(conf: SparkConf): ShuffleExecutorComponents = {
-    logDebug("LEO UcxShuffleManager loadShuffleExecutorComponents")
+    logInfo("LEO UcxShuffleManager loadShuffleExecutorComponents")
     val executorComponents = new NvkvShuffleExecutorComponents(conf, getTransport)
     val extraConfigs = conf.getAllWithPrefix(ShuffleDataIOUtils.SHUFFLE_SPARK_CONF_PREFIX)
       .toMap

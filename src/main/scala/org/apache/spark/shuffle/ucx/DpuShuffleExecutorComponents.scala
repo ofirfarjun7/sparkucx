@@ -23,18 +23,18 @@ import org.apache.spark.shuffle.sort.io.{LocalDiskShuffleMapOutputWriter, LocalD
 
 class NvkvShuffleExecutorComponents(val sparkConf: SparkConf, getTransport: () => UcxShuffleTransport)
               extends ShuffleExecutorComponents with Logging {
-  logDebug("LEO NvkvShuffleExecutorComponents constructor");
+  logInfo("LEO NvkvShuffleExecutorComponents constructor");
 
   private var blockResolver: IndexShuffleBlockResolver = null
   var transport: UcxShuffleTransport = _
 
   override def initializeExecutor(appId: String, execId: String, extraConfigs: Map[String, String]) = {
-    logDebug("LEO NvkvShuffleExecutorComponents initializeExecutor");
+    logInfo("LEO NvkvShuffleExecutorComponents initializeExecutor");
     val blockManager = SparkEnv.get.blockManager;
     if (blockManager == null) {
       throw new IllegalStateException("No blockManager available from the SparkEnv.");
     }
-    logDebug("LEO NvkvShuffleExecutorComponents initializeExecutor init NvkvWrapper");
+    logInfo("LEO NvkvShuffleExecutorComponents initializeExecutor init NvkvWrapper");
     //TODO - pass number of executors.
     blockResolver = new IndexShuffleBlockResolver(sparkConf, blockManager);
     CommonUtils.safePolling(() => {},
@@ -43,7 +43,7 @@ class NvkvShuffleExecutorComponents(val sparkConf: SparkConf, getTransport: () =
   }
 
   override def createMapOutputWriter(shuffleId: Int, mapTaskId: Long, numPartitions: Int) = {
-    logDebug("LEO NvkvShuffleExecutorComponents createMapOutputWriter");
+    logInfo("LEO NvkvShuffleExecutorComponents createMapOutputWriter");
     if (blockResolver == null) {
       throw new IllegalStateException(
           "Executor components must be initialized before getting writers.");
