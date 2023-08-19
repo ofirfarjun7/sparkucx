@@ -110,6 +110,11 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     if (reducePartitionId <= lastPartitionId) throw new IllegalArgumentException("Partitions should be requested in increasing order.")
     lastPartitionId = reducePartitionId
     currChannelPosition = getBlockOffset + bytesWrittenToMergedFile + totalPartitionsPadding
+    /* 
+     * Temporary solution for distributing the load between the NVME devices to get full read BW.
+     * This solution is not optimal because is nt taking into account NUMA topology and it's dependent in randmoness.
+     * See SparkDPU documentation for more information. 
+     */
     dsIdx = Random.nextInt(nvkvWrapper.getNumOfDevices)
     NvkvShuffleMapOutputWriter.log.debug(s"NvkvShuffleMapOutputWriter reducePartition offset $currChannelPosition")
     new NvkvShufflePartitionWriter(reducePartitionId)

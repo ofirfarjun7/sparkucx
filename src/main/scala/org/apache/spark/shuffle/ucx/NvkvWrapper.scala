@@ -44,6 +44,12 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
   val nvkvLogEnabled = SparkEnv.get.conf.getInt("spark.nvkvLogs.enabled", 0)
   val blockManager = SparkEnv.get.blockManager.blockManagerId
   val executerId = blockManager.executorId.toInt
+  /* 
+   * SPDK proccess core_mask has to be unique.
+   * This is a temporary solution.
+   * Ideal solution will use RPC mutex and will take into account NUMA topology.
+   * See SparkDPU documentation for more information. 
+   */
   var core_mask = (1 << (executerId-1)).toHexString
 
   private def verbosedNvkvLogDebug(msg: => String) {
@@ -52,7 +58,7 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
     }
   }
 
-  logDebug(s"LEO NvkvWrapper constructor cpu_mask ${(1 << (executerId-1)).toHexString}")
+  logDebug(s"LEO NvkvWrapper constructor cpu_mask $core_mask")
   try {
     Nvkv.init("mlx5_0", nvkvLogEnabled, core_mask)
     logDebug(s"LEO NvkvWrapper: Pass nvkv init")
