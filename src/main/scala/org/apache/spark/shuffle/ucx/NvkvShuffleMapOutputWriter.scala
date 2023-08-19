@@ -29,6 +29,7 @@ import java.nio.ByteOrder
 import java.nio.channels.FileChannel
 import java.nio.channels.WritableByteChannel
 import java.util.Optional
+import scala.util.Random
 import org.apache.spark.{SparkConf, SparkEnv}
 import org.apache.spark.shuffle.api.ShuffleMapOutputWriter
 import org.apache.spark.shuffle.api.ShufflePartitionWriter
@@ -72,13 +73,6 @@ object NvkvShuffleMapOutputWriter {
   private val log = Logger.getLogger("LEO")
 }
 
-object NvkvRandomDevice {
-  private val rand = new scala.util.Random
-  def getDeviceId(numOfDevices: Int): Int = {
-    rand.nextInt(numOfDevices)
-  }
-}
-
 class NvkvShuffleMapOutputWriter(private val shuffleId: Int, 
                                  private val mapId: Long, 
                                  numPartitions: Int, 
@@ -116,7 +110,7 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     if (reducePartitionId <= lastPartitionId) throw new IllegalArgumentException("Partitions should be requested in increasing order.")
     lastPartitionId = reducePartitionId
     currChannelPosition = getBlockOffset + bytesWrittenToMergedFile + totalPartitionsPadding
-    dsIdx = NvkvRandomDevice.getDeviceId(nvkvWrapper.getNumOfDevices)
+    dsIdx = Random.nextInt(nvkvWrapper.getNumOfDevices)
     NvkvShuffleMapOutputWriter.log.debug(s"NvkvShuffleMapOutputWriter reducePartition offset $currChannelPosition")
     new NvkvShufflePartitionWriter(reducePartitionId)
   }
