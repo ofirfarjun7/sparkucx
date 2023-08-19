@@ -36,7 +36,7 @@ import org.apache.spark.shuffle.api.WritableByteChannelWrapper
 import org.apache.spark.shuffle.IndexShuffleBlockResolver
 import org.apache.spark.util.Utils
 import org.apache.spark.shuffle.ucx
-import org.apache.spark.shuffle.utils.CommonUtils
+import org.apache.spark.shuffle.utils.{CommonUtils, UnsafeUtils}
 
 
 /*
@@ -132,7 +132,11 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     var blockOffset = getBlockOffset;
 
     //TODO - move to shuffleTransport    
-    var packMapperData: ByteBuffer = ByteBuffer.allocateDirect(8 + 8 + 4 + 2*8*partitionLengths.size).order(ByteOrder.nativeOrder())
+    var packMapperData: ByteBuffer = ByteBuffer.allocateDirect(UnsafeUtils.INT_SIZE + // numOfMappers
+                                                               UnsafeUtils.INT_SIZE + // numOfReducePartitions
+                                                               UnsafeUtils.INT_SIZE + // mapperId
+                                                               2*UnsafeUtils.LONG_SIZE*partitionLengths.size // offset + length for each reducePartition
+                                                              ).order(ByteOrder.nativeOrder())
     packMapperData.putInt(1)
     packMapperData.putInt(partitionLengths.size)
     packMapperData.putInt(mapId.toInt)
