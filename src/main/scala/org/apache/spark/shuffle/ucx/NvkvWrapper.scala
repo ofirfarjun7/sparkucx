@@ -242,10 +242,6 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
             post(writeRequest)
             pollCompletion(writeRequest)
             nvkvLogDebug(s"LEO NvkvWrapper write complete")
-
-            // read(nvkvWriteBufferSize, relativeOffset)
-            // test(nvkvWriteBufferSize)
-
             relativeOffset += nvkvWriteBufferSize
         } else {
             sourceLimit = (source.position()+nvkvWriteBuffer.remaining()).min(length)
@@ -267,8 +263,6 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
     post(writeRequest)
     pollCompletion(writeRequest)
     nvkvLogDebug(s"LEO NvkvWrapper write complete")
-    // read(bufferPosition, relativeOffset)
-    // test(bufferPosition)
     (getAlignedLength(bufferPosition) - bufferPosition)
   }
 
