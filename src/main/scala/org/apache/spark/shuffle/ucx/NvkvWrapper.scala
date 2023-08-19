@@ -33,6 +33,7 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
   private var nvkvReadBuffer: ByteBuffer = null
   private var nvkvRemoteReadBuffer: ByteBuffer = null
   private var nvkv: Nvkv.Context = null
+  var ds: Array[Nvkv.DataSet] = Array()
   private var ds_idx = 0
   private var nvkvStorageSize = 0L
   private var partitionSize = 0L
@@ -53,39 +54,19 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
 
   logDebug(s"LEO NvkvWrapper constructor cpu_mask ${(1 << (executerId-1)).toHexString}")
   try {
-    Nvkv.init("mlx5_0", 0, (1 << (executerId-1)).toHexString) 
-  } catch {
-    case e: NvkvException => logDebug(s"LEO NvkvWrapper: Failed to init nvkv")
-  }
-
-  var ds: Array[Nvkv.DataSet] =
-  try {
-    Nvkv.query()
-  } catch {
-    case e: NvkvException => {
-        logDebug(s"LEO NvkvWrapper: Failed to query for nvme")
-        Array()
-      }
-  }
-  if (ds.length == 0) throw new NvkvException("Failed to detect nvme device!")
-
-  try {
+    Nvkv.init("mlx5_0", nvkvLogEnabled, core_mask)
+    logDebug(s"LEO NvkvWrapper: Pass nvkv init")
+    ds = Nvkv.query()
+    if (ds.length == 0) throw new NvkvException("Failed to detect nvme device!")
+    logDebug(s"LEO NvkvWrapper: Successfully query nvkv devices")
     nvkv = Nvkv.open(ds, Nvkv.LOCAL|Nvkv.REMOTE)
-  } catch {
-    case e: NvkvException => logDebug(s"LEO NvkvWrapper: Failed to open nvkv")
-  }
-
-  try {
+    logDebug(s"LEO NvkvWrapper: Pass nvkv open")
     nvkvWriteBuffer = nvkv.alloc(nvkvWriteBufferSize)
-  } catch {
-    case e: NvkvException => logDebug(s"LEO NvkvWrapper: Failed to allocate nvkv write buffer")
-  }
-  
-  // nvkvReadBuffer = nvkv.alloc(nvkvReadBufferSize)
-  try {
+    logDebug(s"LEO NvkvWrapper: Allocated write buffer")
     nvkvRemoteReadBuffer = nvkv.alloc(nvkvNumOfReadBuffers*nvkvRemoteReadBufferSize)
+    logDebug(s"LEO NvkvWrapper: Allocated BB read buffers")
   } catch {
-    case e: NvkvException => logDebug(s"LEO NvkvWrapper: Failed to allocate nvkv read buffer")
+    case e: NvkvException => logDebug(s"LEO NvkvWrapper: Failed to init NvkvWrapper"); throw (e)
   }
 
   nvkvStorageSize = ds(0).size
