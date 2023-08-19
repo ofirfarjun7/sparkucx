@@ -136,7 +136,7 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
                                                                UnsafeUtils.INT_SIZE + // numOfReducePartitions
                                                                UnsafeUtils.INT_SIZE + // mapperId
                                                                2*UnsafeUtils.LONG_SIZE*partitionLengths.size // offset + length for each reducePartition
-                                                              ).order(ByteOrder.nativeOrder())
+                                                              ).order(ByteOrder.LITTLE_ENDIAN)
     packMapperData.putInt(1)
     packMapperData.putInt(partitionLengths.size)
     packMapperData.putInt(mapId.toInt)

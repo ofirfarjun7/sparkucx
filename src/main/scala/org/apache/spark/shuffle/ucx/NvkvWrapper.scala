@@ -72,7 +72,7 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
   nvkvStorageSize = ds(0).size
   partitionSize = nvkvStorageSize / numOfPartitions
 
-  var nvkvCtx: Array[Byte] = ByteBuffer.wrap(nvkv.export()).order(ByteOrder.nativeOrder()).array()
+  var nvkvCtx: Array[Byte] = ByteBuffer.wrap(nvkv.export()).order(ByteOrder.LITTLE_ENDIAN).array()
   var nvkvCtxSize: Int = nvkvCtx.length
 
   nvkvLogDebug(s"LEO NvkvWrapper: Register bb")
@@ -87,7 +87,7 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
                                        UnsafeUtils.LONG_SIZE + // readBuf length
                                        UnsafeUtils.INT_SIZE  + // max block size
                                        UnsafeUtils.INT_SIZE  + // readBuffer mkey size
-                                       mkeyBuffer.capacity()).order(ByteOrder.nativeOrder())
+                                       mkeyBuffer.capacity()).order(ByteOrder.LITTLE_ENDIAN)
   packData.putInt(nvkvCtxSize)
   packData.put(nvkvCtx)
   packData.putLong(UnsafeUtils.getAdress(nvkvRemoteReadBuffer))
