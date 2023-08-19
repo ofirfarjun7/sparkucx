@@ -16,7 +16,6 @@ package org.apache.spark.shuffle.ucx
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-//  package org.apache.spark.shuffle.sort.io;
 
 import org.apache.spark.internal.Logging
 import org.apache.log4j.Logger
@@ -117,8 +116,6 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     if (reducePartitionId <= lastPartitionId) throw new IllegalArgumentException("Partitions should be requested in increasing order.")
     lastPartitionId = reducePartitionId
     currChannelPosition = getBlockOffset + bytesWrittenToMergedFile + totalPartitionsPadding
-    // val rand = new scala.util.Random
-    // dsIdx = rand.nextInt(nvkvWrapper.getNumOfStorage)
     dsIdx = NvkvRandomDevice.getDeviceId(nvkvWrapper.getNumOfDevices)
     NvkvShuffleMapOutputWriter.log.debug("NvkvShuffleMapOutputWriter currChannelPosition " + currChannelPosition)
     new NvkvShufflePartitionWriter(reducePartitionId)

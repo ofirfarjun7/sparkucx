@@ -17,11 +17,6 @@ import org.apache.spark.{SparkConf, SparkEnv, TaskContext}
  * and injects needed logic in override methods.
  */
 
- /**
- TODOs
- 1. Check how Spark decides when to spill reduce blocks to the HD, 
-    and how we can use it to improve performance.
- */
 class UcxShuffleManager(override val conf: SparkConf, isDriver: Boolean)
   extends CommonUcxShuffleManager(conf, isDriver) {
 
@@ -69,12 +64,5 @@ class UcxShuffleManager(override val conf: SparkConf, isDriver: Boolean)
       SparkEnv.get.executorId,
       extraConfigs.asJava)
     executorComponents
-  }
-
-  @Override
-  override def stop() = {
-    logDebug("LEO UcxShuffleManager - Closing nvkv")
-    // Nvkv.fini()
-    super.stop()
   }
 }

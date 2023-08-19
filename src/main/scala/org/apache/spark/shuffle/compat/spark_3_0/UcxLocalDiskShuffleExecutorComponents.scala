@@ -33,7 +33,6 @@ class UcxLocalDiskShuffleExecutorComponents(sparkConf: SparkConf)
   }
 
   override def createMapOutputWriter(shuffleId: Int, mapTaskId: Long, numPartitions: Int): ShuffleMapOutputWriter = {
-    // Not used
     logDebug("LEO UcxLocalDiskShuffleExecutorComponents createMapOutputWriter shuffleId: " + shuffleId + " mapTaskId: " + mapTaskId + " numPartitions: " + numPartitions)
     if (blockResolver == null) {
       throw new IllegalStateException(

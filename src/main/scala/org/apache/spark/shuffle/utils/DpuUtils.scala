@@ -6,13 +6,21 @@ package org.apache.spark.shuffle.ucx.utils
 
 import org.apache.spark.internal.Logging
 
-
+import scala.collection.JavaConverters._
 import java.io.File;
 import org.ini4j.Ini
 
 object DpuUtils extends Logging {
-    val CLUSTER_CONF_FILE = "/hpc/mtr_scrap/users/ofarjon/spark/cluster.ini"
-
+    val ini: Ini =
+      try {
+        val CLUSTER_CONF_FILE = "/hpc/mtr_scrap/users/ofarjon/spark/cluster.ini"
+        new Ini(new File(CLUSTER_CONF_FILE))
+      } catch {
+        case e: Exception =>
+          e.printStackTrace()
+          new Ini()
+      }
+    val dpusSection = ini.get("dpu")
     /**
       * Retrieve the IP address of the local DPU. For POC purposes, all IPs are assumed
       * to be in a network mounted file. This logic will be later replaced.
@@ -20,11 +28,19 @@ object DpuUtils extends Logging {
       * @return
       */
     def getLocalDpuAddress(): String = {
-        val ini = new Ini(new File(CLUSTER_CONF_FILE))
-        val section = ini.get("dpu")
-        val hostname = java.net.InetAddress.getLocalHost.getHostName.split("\\.")(0)
-        val dpuAddress = section.get(hostname)
+      val hostname = java.net.InetAddress.getLocalHost.getHostName.split("\\.")(0)
+      dpusSection.get(hostname)
+    }
 
-        dpuAddress
+    /**
+      * @return Number of DPUs in the cluster
+      */
+    def getNumberOfDpus(): Int = {
+      var numOfDpus: Int = 0
+      for (dpu <- dpusSection.keySet().asScala) {
+        numOfDpus += 1
+      }
+
+      numOfDpus
     }
 }

@@ -7,7 +7,6 @@ package org.apache.spark.shuffle.ucx
 import org.apache.spark.SparkEnv
 import org.apache.spark.internal.Logging
 import org.apache.spark.shuffle.ucx.memory.UcxHostBounceBuffersPool
-import org.apache.spark.shuffle.ucx.rpc.GlobalWorkerRpcThread
 import org.apache.spark.shuffle.ucx.utils.{SerializableDirectBuffer, SerializationUtils, DpuUtils}
 import org.apache.spark.shuffle.utils.UnsafeUtils
 import org.openucx.jucx.UcxException
@@ -77,7 +76,6 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
   @volatile private var initialized: Boolean = false
   private[ucx] var ucxContext: UcpContext = _
   private var globalWorker: UcxWorkerWrapper = _
-  // private var listener: UcpListener = _
   private val ucpWorkerParams = new UcpWorkerParams().requestThreadSafety()
   val endpoints = mutable.Set.empty[UcpEndpoint]
   val executorAddresses = new TrieMap[ExecutorId, ByteBuffer]
@@ -120,22 +118,9 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
       ucxShuffleConf = new UcxShuffleConf(SparkEnv.get.conf)
     }
 
-    // EP per 
-    val numEndpoints = ucxShuffleConf.getSparkConf.getInt("spark.executor.instances", 1) * ucxShuffleConf.numWorkers
-    
-    // *
-      //ucxShuffleConf.getSparkConf.getInt("spark.executor.instances", 1)// *
-      //ucxShuffleConf.numListenerThreads // Each listener thread creates backward endpoint
+    val numEndpoints = DpuUtils.getNumberOfDpus()
     logInfo(s"Creating UCX context with an estimated number of endpoints: $numEndpoints")
-
-    val params = new UcpParams().requestAmFeature().setMtWorkersShared(true).setEstimatedNumEps(numEndpoints)
-      .requestAmFeature().setConfig("USE_MT_MUTEX", "yes").requestExportedMemFeature()
-
-    if (ucxShuffleConf.useWakeup) {
-      params.requestWakeupFeature()
-      ucpWorkerParams.requestWakeupRX().requestWakeupTX().requestWakeupEdge()
-    }
-
+    val params = new UcpParams().requestAmFeature().setEstimatedNumEps(numEndpoints).requestExportedMemFeature()
     ucxContext = new UcpContext(params)
     hostBounceBufferMemoryPool = new UcxHostBounceBuffersPool(ucxShuffleConf, ucxContext)
 
