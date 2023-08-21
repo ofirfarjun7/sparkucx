@@ -19,8 +19,6 @@ import org.apache.spark.storage.BlockManager;
 import org.apache.spark.shuffle.utils.CommonUtils
 import org.apache.spark.shuffle.ucx;
 
-import org.apache.spark.shuffle.sort.io.{LocalDiskShuffleMapOutputWriter, LocalDiskSingleSpillMapOutputWriter};
-
 class NvkvShuffleExecutorComponents(val sparkConf: SparkConf, getTransport: () => UcxShuffleTransport)
               extends ShuffleExecutorComponents with Logging {
   logInfo("LEO NvkvShuffleExecutorComponents constructor");

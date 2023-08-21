@@ -177,17 +177,9 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     NvkvShuffleMapOutputWriter.log.debug(s"NvkvShuffleMapOutputWriter initStream bufferSize $bufferSize")
   }
 
-  @throws[IOException]
-  private def initChannel(): Unit = {
-    NvkvShuffleMapOutputWriter.log.debug("NvkvShuffleMapOutputWriter initChannel")
-    // This file needs to opened in append mode in order to work around a Linux kernel bug that
-    // affects transferTo; see SPARK-3948 for more details.
-  }
-
   private class NvkvShufflePartitionWriter (private val partitionId: Int) extends ShufflePartitionWriter {
     NvkvShuffleMapOutputWriter.log.debug("NvkvShufflePartitionWriter ctor " + partitionId + " shuffleId " + shuffleId + " mapId " + mapId)
     private var partStream: PartitionWriterStream = null
-    private var partChannel: PartitionWriterChannel = null
 
     @throws[IOException]
     override def openStream: OutputStream = {
@@ -201,31 +193,13 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
 
     @throws[IOException]
     override def openChannelWrapper: Optional[WritableByteChannelWrapper] = {
-      NvkvShuffleMapOutputWriter.log.debug("NvkvShufflePartitionWriter openChannelWrapper " + partitionId)
-      if (partChannel == null) {
-        if (partStream != null) { 
-          throw new IllegalStateException("Requested an output stream for a previous write but" + " now an output channel has been requested. Should not be using both channels" + " and streams to write.")
-        }
-        initChannel()
-        partChannel = new PartitionWriterChannel(partitionId)
-      }
-      Optional.of(partChannel)
+      Optional.empty()
     }
 
     override def getNumBytesWritten: Long = {
       NvkvShuffleMapOutputWriter.log.debug("NvkvShufflePartitionWriter getNumBytesWritten " + partitionId)
-      if (partChannel != null) {
-        try {
-          partChannel.getCount
-        }
-        catch {
-          case e: IOException =>
-            throw new RuntimeException(e)
-        }
-      }
-      else if (partStream != null) {
-        partStream.getCount
-      } else {
+      if (partStream != null) partStream.getCount
+      else {
         // Assume an empty partition if stream and channel are never created
         0
       }
@@ -269,28 +243,6 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
 
     private def verifyNotClosed(): Unit = {
       if (isClosed) throw new IllegalStateException("Attempting to write to a closed block output stream.")
-    }
-  }
-
-  private class PartitionWriterChannel private[ucx](private val partitionId: Int) extends WritableByteChannelWrapper {
-    NvkvShuffleMapOutputWriter.log.debug("PartitionWriterChannel ctor " + partitionId)
-
-    @throws[IOException]
-    def getCount: Long = {
-      NvkvShuffleMapOutputWriter.log.debug("PartitionWriterChannel getCount " + partitionId)
-      0
-    }
-
-    override def channel: WritableByteChannel = {
-      NvkvShuffleMapOutputWriter.log.debug("PartitionWriterChannel channel " + partitionId)
-      null
-    }
-
-    @throws[IOException]
-    override def close(): Unit = {
-      NvkvShuffleMapOutputWriter.log.debug("PartitionWriterStream close2")
-      partitionLengths(partitionId) = getCount
-      bytesWrittenToMergedFile += partitionLengths(partitionId)
     }
   }
 }
