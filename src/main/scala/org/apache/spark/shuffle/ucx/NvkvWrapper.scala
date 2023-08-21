@@ -164,11 +164,11 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
 
   private def post(request: WriteRequest) = {
     verbosedNvkvLogDebug(s"LEO NvkvWrapper post write")
-    if (request.getOffset % 512 != 0) {
+    if (request.getOffset % getAlignment != 0) {
       throw new IllegalArgumentException(s"write Illegal offset ${request.getOffset}")
     }
     
-    if (request.getLength % 512 != 0) {
+    if (request.getLength % getAlignment != 0) {
       throw new IllegalArgumentException(s"write Illegal length ${request.getLength}")
     }
 
@@ -213,7 +213,9 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
     if (!(nvkvWriteBufferTmp == nvkvReadBufferTmp)) throw new RuntimeException("Data is corrupted")
   }
 
-  private def getAlignedLength(length: Int) = if (length % 512 == 0) {length} else {length + (alignment - (length % alignment))}
+  private def getAlignedLength(length: Int) = if (length % getAlignment == 0) {length} else {length + (alignment - (length % alignment))}
+
+  def getAlignment: Int = alignment
 
   def read(length: Int, offset: Long): ByteBuffer = {
     val alignedLength = getAlignedLength(length)

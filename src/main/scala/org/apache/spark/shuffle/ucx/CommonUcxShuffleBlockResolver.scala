@@ -25,7 +25,7 @@ class FileBackedMemoryBlock(baseAddress: Long, baseSize: Long, address: Long, si
 abstract class CommonUcxShuffleBlockResolver(ucxShuffleManager: CommonUcxShuffleManager)
   extends IndexShuffleBlockResolver(ucxShuffleManager.conf) {
 
-  logInfo(s"LEO CommonUcxShuffleBlockResolver")
+  logInfo("CommonUcxShuffleBlockResolver")
 
   private val openFds = new ConcurrentHashMap[ShuffleId, ConcurrentLinkedQueue[RandomAccessFile]]()
 
@@ -37,7 +37,7 @@ abstract class CommonUcxShuffleBlockResolver(ucxShuffleManager: CommonUcxShuffle
   def writeIndexFileAndCommitCommon(shuffleId: ShuffleId, mapId: Int,
                                     lengths: Array[Long], dataBackFile: RandomAccessFile): Unit = {
 
-    logInfo(s"LEO writeIndexFileAndCommitCommon: shuffleId=$shuffleId, mapId=$mapId, lengths=$lengths, dataBackFile=$dataBackFile")
+    logInfo(s"writeIndexFileAndCommitCommon: shuffleId=$shuffleId, mapId=$mapId, lengths=$lengths, dataBackFile=$dataBackFile")
     openFds.computeIfAbsent(shuffleId, (_: ShuffleId) => new ConcurrentLinkedQueue[RandomAccessFile]())
     openFds.get(shuffleId).add(dataBackFile)
     var offset = 0L

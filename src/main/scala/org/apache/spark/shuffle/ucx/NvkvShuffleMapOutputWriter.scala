@@ -66,8 +66,6 @@ import org.apache.spark.shuffle.utils.{CommonUtils, UnsafeUtils}
 * limitations under the License.
 */
 
-//  package org.apache.spark.shuffle.sort.io;
-
 
 object NvkvShuffleMapOutputWriter {
   private val log = Logger.getLogger("LEO")
@@ -99,8 +97,8 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     val numOfMappers = SparkEnv.get.conf.getInt("spark.groupByTest.numMappers", 1)
     val shuffleBlockSize = nvkvWrapper.getPartitionSize / numShuffles
     val mapBlockSize = shuffleBlockSize / numOfMappers
-    val r = mapBlockSize % 512;
-    val alignedMapBlockSize = if (r != 0) {mapBlockSize - (r)} else mapBlockSize
+    val reminder = mapBlockSize % nvkvWrapper.getAlignment;
+    val alignedMapBlockSize = if (reminder != 0) {mapBlockSize - (reminder)} else mapBlockSize
     (shuffleId * shuffleBlockSize) + (mapId * alignedMapBlockSize)
   }
 
@@ -150,7 +148,7 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
         }
     }
 
-    packMapperData.rewind
+    packMapperData.rewind()
     val resultBufferAllocator = (size: Long) => ucxTransport.hostBounceBufferMemoryPool.get(size)
     var commitBlock = false
     NvkvShuffleMapOutputWriter.log.debug(s"Sending map partition information for mapId $mapId to DPU")
@@ -205,7 +203,9 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     override def openChannelWrapper: Optional[WritableByteChannelWrapper] = {
       NvkvShuffleMapOutputWriter.log.debug("NvkvShufflePartitionWriter openChannelWrapper " + partitionId)
       if (partChannel == null) {
-        if (partStream != null) throw new IllegalStateException("Requested an output stream for a previous write but" + " now an output channel has been requested. Should not be using both channels" + " and streams to write.")
+        if (partStream != null) { 
+          throw new IllegalStateException("Requested an output stream for a previous write but" + " now an output channel has been requested. Should not be using both channels" + " and streams to write.")
+        }
         initChannel()
         partChannel = new PartitionWriterChannel(partitionId)
       }
@@ -214,13 +214,18 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
 
     override def getNumBytesWritten: Long = {
       NvkvShuffleMapOutputWriter.log.debug("NvkvShufflePartitionWriter getNumBytesWritten " + partitionId)
-      if (partChannel != null) try partChannel.getCount
-      catch {
-        case e: IOException =>
-          throw new RuntimeException(e)
+      if (partChannel != null) {
+        try {
+          partChannel.getCount
+        }
+        catch {
+          case e: IOException =>
+            throw new RuntimeException(e)
+        }
       }
-      else if (partStream != null) partStream.getCount
-      else {
+      else if (partStream != null) {
+        partStream.getCount
+      } else {
         // Assume an empty partition if stream and channel are never created
         0
       }

@@ -39,7 +39,7 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
 
   private val setupThread = ThreadUtils.newDaemonSingleThreadExecutor("UcxTransportSetupThread")
 
-  logInfo("LEO CommonUcxShuffleManager")
+  logInfo("CommonUcxShuffleManager")
 
   def getTransport(): UcxShuffleTransport = { ucxTransport }
   def setTransport(transport: UcxShuffleTransport): Unit = { ucxTransport = transport }
@@ -68,7 +68,7 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
    * Atomically starts UcxNode singleton - one for all shuffle threads.
    */
   def startUcxTransport(): Unit = if (ucxTransport == null) {
-    logInfo(s"LEO startUcxTransport")
+    logInfo("startUcxTransport")
     val blockManager = SparkEnv.get.blockManager.blockManagerId
     val transport = new UcxShuffleTransport(ucxShuffleConf, blockManager.executorId.toLong)
     transport.init()
@@ -82,10 +82,10 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
     val endpoint = rpcEnv.setupEndpoint(
       s"ucx-shuffle-executor-${blockManager.executorId}",
       executorEndpoint)
-    logInfo(s"LEO startUcxTransport sending RPC IntroduceAllExecutors")
+    logInfo(s"startUcxTransport sending RPC IntroduceAllExecutors")
 
     var sockAddress = new InetSocketAddress(DpuUtils.getLocalDpuAddress(), 1338)
-    logInfo(s"LEO sockAddress ${sockAddress} host ${sockAddress.getHostName} address ${sockAddress.getAddress}")
+    logInfo(s"sockAddress ${sockAddress} host ${sockAddress.getHostName} address ${sockAddress.getAddress}")
     driverEndpoint.ask[IntroduceAllExecutors](ExecutorAdded(blockManager.executorId.toLong, endpoint,
       new SerializableDirectBuffer(SerializationUtils.serializeInetAddress(sockAddress))))
       .andThen {

@@ -53,6 +53,5 @@ class NvkvShuffleExecutorComponents(val sparkConf: SparkConf, getTransport: () =
 
   override def createSingleFileMapOutputWriter(shuffleId: Int, mapId: Long) = {
     Optional.empty();
-
    }
 }
