@@ -68,7 +68,7 @@ object UcxShuffleBlockId {
     val shuffleId = byteBuffer.getInt
     val mapId = byteBuffer.getInt
     val reduceId = byteBuffer.getInt
-    UcxShuffleBlockId(0, mapId, reduceId)
+    this(0, mapId, reduceId)
   }
 }
 

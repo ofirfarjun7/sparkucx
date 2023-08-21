@@ -63,7 +63,9 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
     Nvkv.init("mlx5_0", nvkvLogEnabled, core_mask)
     logDebug(s"LEO NvkvWrapper: Pass nvkv init")
     ds = Nvkv.query()
-    if (ds.length == 0) throw new NvkvException("Failed to detect nvme device!")
+    if (ds.length == 0) {
+      throw new NvkvException("Failed to detect nvme device!")
+    }
     logDebug(s"LEO NvkvWrapper: Successfully query nvkv devices")
     nvkv = Nvkv.open(ds, Nvkv.LOCAL|Nvkv.REMOTE)
     logDebug(s"LEO NvkvWrapper: Pass nvkv open")
@@ -131,7 +133,7 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
     try {
       nvkv.connect(add)
     } catch {
-      case e: NvkvException => logDebug("LEO NvkvWrapper: Failed to connect to remote nvkv received from DPU")
+      case e: NvkvException => logDebug("LEO NvkvWrapper: Failed to connect to remote nvkv received from DPU"); throw(e)
     }
   }
   
@@ -162,15 +164,19 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
     def getLength: Long = length
   }
 
-  private def post(request: WriteRequest) = {
-    verbosedNvkvLogDebug(s"LEO NvkvWrapper post write")
+  private def checkRequest(request: Request) {
     if (request.getOffset % getAlignment != 0) {
-      throw new IllegalArgumentException(s"write Illegal offset ${request.getOffset}")
+      throw new IllegalArgumentException(s"Illegal offset ${request.getOffset}")
     }
     
     if (request.getLength % getAlignment != 0) {
-      throw new IllegalArgumentException(s"write Illegal length ${request.getLength}")
+      throw new IllegalArgumentException(s"Illegal length ${request.getLength}")
     }
+  }
+
+  private def post(request: WriteRequest) = {
+    verbosedNvkvLogDebug(s"LEO NvkvWrapper post write")
+    checkRequest(request)
 
     try nvkv.postWrite(request.getDsIdx, nvkvWriteBuffer, 0, request.getLength, request.getOffset, new Nvkv.Context.Callback() {
       def done(): Unit = {
@@ -179,13 +185,14 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
       }
     })
     catch {
-      case e: Exception =>
-        throw new RuntimeException(e)
+      case e: Exception => logError(s"LEO NvkvWrapper: Failed to post write request"); throw (e)
     }
   }
 
   private def post(request: ReadRequest) = {
     verbosedNvkvLogDebug(s"LEO NvkvWrapper post read")
+    checkRequest(request)
+
     try nvkv.postRead(ds_idx, request.getBuffer, 0, request.getLength, request.getOffset, new Nvkv.Context.Callback() {
       def done(): Unit = {
         request.setComplete()
@@ -193,8 +200,7 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
       }
     })
     catch {
-      case e: Exception =>
-        throw new RuntimeException(e)
+      case e: Exception => logError(s"LEO NvkvWrapper: Failed to post read request"); throw (e)
     }
   }
 
@@ -210,7 +216,9 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
     nvkvWriteBufferTmp.limit(length)
     val nvkvReadBufferTmp = nvkvReadBuffer.duplicate
     nvkvReadBufferTmp.limit(length)
-    if (!(nvkvWriteBufferTmp == nvkvReadBufferTmp)) throw new RuntimeException("Data is corrupted")
+    if (!(nvkvWriteBufferTmp == nvkvReadBufferTmp)) {
+      throw new RuntimeException("Data is corrupted")
+    }
   }
 
   private def getAlignedLength(length: Int) = if (length % getAlignment == 0) {length} else {length + (alignment - (length % alignment))}
