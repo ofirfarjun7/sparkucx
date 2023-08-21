@@ -18,6 +18,7 @@ import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import scala.collection.concurrent.TrieMap
 import scala.collection.mutable
+import org.apache.spark.SparkException
 
 class UcxRequest(private var request: UcpRequest, stats: OperationStats)
   extends Request {
@@ -227,9 +228,15 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
   }
 
   def unregisterShuffle(shuffleId: Int): Unit = {
-    registeredBlocks.keysIterator.foreach(bid =>
-      if (bid.asInstanceOf[UcxShuffleBlockId].shuffleId == shuffleId) {
-        registeredBlocks.remove(bid)
+    registeredBlocks.keysIterator.foreach(key =>
+      key match {
+        case blockId: UcxShuffleBlockId => {
+          if (blockId.shuffleId == shuffleId) {
+            registeredBlocks.remove(blockId)
+          }
+        }
+        case _ =>
+          throw new SparkException("Unrecognized blockId")
       }
     )
   }
