@@ -43,7 +43,7 @@ class UcxShuffleBlockResolver(ucxShuffleManager: CommonUcxShuffleManager)
 
     val ucxTransport: UcxShuffleTransport = shuffleManager.ucxTransport
 
-    logInfo("LEO UcxShuffleBlockResolver getBlockData")
+    logInfo("UcxShuffleBlockResolver getBlockData")
     val (shuffleId, mapId, startReduceId, endReduceId) = blockId match {
       case id: ShuffleBlockId =>
         (id.shuffleId, id.mapId, id.reduceId, id.reduceId + 1)
@@ -55,7 +55,7 @@ class UcxShuffleBlockResolver(ucxShuffleManager: CommonUcxShuffleManager)
     
     var length = ucxTransport.getNvkvWrapper.getPartitonLength(shuffleId, mapId, startReduceId).toInt
     var offset = ucxTransport.getNvkvWrapper.getPartitonOffset(shuffleId, mapId, startReduceId)
-    logDebug(s"LEO UcxShuffleBlockResolver - Reading shuffleId $shuffleId mapId $mapId reduceId $startReduceId at offset $offset with length $length from nvkv")
+    logDebug(s"UcxShuffleBlockResolver - Reading shuffleId $shuffleId mapId $mapId reduceId $startReduceId at offset $offset with length $length from nvkv")
     var resultBuffer = ucxTransport.getNvkvWrapper.read(length, offset)
     new NioManagedBuffer(resultBuffer)
   }

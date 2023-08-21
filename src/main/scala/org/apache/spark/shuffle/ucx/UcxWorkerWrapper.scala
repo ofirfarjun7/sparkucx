@@ -79,7 +79,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
   worker.setAmRecvHandler(UcpSparkAmId.InitExecutorAck,
   (headerAddress: Long, headerSize: Long, ucpAmData: UcpAmData, _: UcpEndpoint) => {
 
-    logDebug(s"LEO InitExecutorAck called!")
+    logDebug(s"InitExecutorAck called!")
 
     if (ucpAmData.isDataValid) {
       // val buff: ByteBuffer = UcxUtils.getByteBufferView(ucpAmData.getDataAddress, ucpAmData.getLength.toInt)
@@ -90,7 +90,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
       connectToRemoteNvkv = true
     }
 
-    logDebug(s"LEO Connected to remote nvkv on DPU")
+    logDebug(s"Connected to remote nvkv on DPU")
     UcsConstants.STATUS.UCS_OK
   }, UcpConstants.UCP_AM_FLAG_PERSISTENT_DATA | UcpConstants.UCP_AM_FLAG_WHOLE_MSG)
 
@@ -100,7 +100,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
       val i = headerBuffer.getInt
       val data = requestData.remove(i)
 
-      logDebug(s"LEO Fetch block ack called!")
+      logDebug(s"Fetch block ack called!")
 
       if (data.isEmpty) {
         throw new UcxException(s"No data for tag $i.")
@@ -130,7 +130,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
         if (callbacks.isEmpty) UcsConstants.STATUS.UCS_OK else UcsConstants.STATUS.UCS_INPROGRESS
 
       } else {
-        logDebug(s"LEO Received RNDV rts Length: ${stats.receiveSize}")
+        logDebug(s"Received RNDV rts Length: ${stats.receiveSize}")
         val mem = allocator(ucpAmData.getLength)
         stats.amHandleTime = System.nanoTime()
 

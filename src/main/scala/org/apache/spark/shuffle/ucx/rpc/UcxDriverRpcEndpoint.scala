@@ -24,7 +24,7 @@ class UcxDriverRpcEndpoint(override val rpcEnv: RpcEnv) extends ThreadSafeRpcEnd
   
   override def receive: PartialFunction[Any, Unit] = {
     case message@NvkvReleaseLock(executorId: Long) => {
-      logInfo(s"LEO NvkvLock: executor $executorId release lock")
+      logInfo(s"NvkvLock: executor $executorId release lock")
       if (executorToDpuAddress.contains(executorId)) {
         val execAdd = executorToDpuAddress(executorId)
         val desExecAdd = SerializationUtils.deserializeInetAddress(execAdd.value)
@@ -34,7 +34,7 @@ class UcxDriverRpcEndpoint(override val rpcEnv: RpcEnv) extends ThreadSafeRpcEnd
           nvkvLock.put(desExecAdd, 0)
         } else {
           val pendingEp = nvkvLockPendingQ.remove(0)
-          logInfo(s"LEO NvkvLock: send lock to pending")
+          logInfo(s"NvkvLock: send lock to pending")
           pendingEp.send(new NvkvLock(1))
         }
       } else {
@@ -45,16 +45,16 @@ class UcxDriverRpcEndpoint(override val rpcEnv: RpcEnv) extends ThreadSafeRpcEnd
 
 
     case message@NvkvRequestLock(executorId: Long, execEp: RpcEndpointRef) => {
-      logInfo(s"LEO NvkvLock: executor $executorId request lock")
+      logInfo(s"NvkvLock: executor $executorId request lock")
       if (executorToDpuAddress.contains(executorId)) {
         val execAdd = executorToDpuAddress(executorId)
         val desExecAdd = SerializationUtils.deserializeInetAddress(execAdd.value)
         var tryLock = nvkvLock.replace(desExecAdd, 0, 1)
         if (tryLock) {
           execEp.send(new NvkvLock(1))
-          logInfo(s"LEO NvkvLock: Lock given to $executorId")
+          logInfo(s"NvkvLock: Lock given to $executorId")
         } else {
-          logInfo(s"LEO NvkvLock: Lock is not free, $executorId is pending...")
+          logInfo(s"NvkvLock: Lock is not free, $executorId is pending...")
           var nvkvLockPendingQ = nvkvLockPendingQMap.getOrElseUpdate(desExecAdd, 
                                     new mutable.ListBuffer[RpcEndpointRef])
           nvkvLockPendingQ.append(execEp)
@@ -71,8 +71,8 @@ class UcxDriverRpcEndpoint(override val rpcEnv: RpcEnv) extends ThreadSafeRpcEnd
     dpuSockAddress: SerializableDirectBuffer) => {
       // Driver receives a message from executor with it's local dpu sockAddress
       // 1. Introduce existing members of a cluster
-      logDebug(s"LEO driver received $message")
-      logDebug(s"LEO dpuSockAddress: ${SerializationUtils.deserializeInetAddress(dpuSockAddress.value)}")
+      logDebug(s"driver received $message")
+      logDebug(s"dpuSockAddress: ${SerializationUtils.deserializeInetAddress(dpuSockAddress.value)}")
       if (executorToDpuAddress.nonEmpty) {
         val msg = IntroduceAllExecutors(executorToDpuAddress)
         logDebug(s"replying $msg to $executorId")

@@ -58,23 +58,23 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
     }
   }
 
-  logDebug(s"LEO NvkvWrapper constructor cpu_mask $core_mask")
+  logDebug(s"NvkvWrapper constructor cpu_mask $core_mask")
   try {
     Nvkv.init("mlx5_0", nvkvLogEnabled, core_mask)
-    logDebug(s"LEO NvkvWrapper: Pass nvkv init")
+    logDebug(s"NvkvWrapper: Pass nvkv init")
     ds = Nvkv.query()
     if (ds.length == 0) {
       throw new NvkvException("Failed to detect nvme device!")
     }
-    logDebug(s"LEO NvkvWrapper: Successfully query nvkv devices")
+    logDebug(s"NvkvWrapper: Successfully query nvkv devices")
     nvkv = Nvkv.open(ds, Nvkv.LOCAL|Nvkv.REMOTE)
-    logDebug(s"LEO NvkvWrapper: Pass nvkv open")
+    logDebug(s"NvkvWrapper: Pass nvkv open")
     nvkvWriteBuffer = nvkv.alloc(nvkvWriteBufferSize)
-    logDebug(s"LEO NvkvWrapper: Allocated write buffer")
+    logDebug(s"NvkvWrapper: Allocated write buffer")
     nvkvRemoteReadBuffer = nvkv.alloc(nvkvNumOfReadBuffers*nvkvRemoteReadBufferSize)
-    logDebug(s"LEO NvkvWrapper: Allocated BB read buffers")
+    logDebug(s"NvkvWrapper: Allocated BB read buffers")
   } catch {
-    case e: NvkvException => logError(s"LEO NvkvWrapper: Failed to init NvkvWrapper"); throw (e)
+    case e: NvkvException => logError(s"NvkvWrapper: Failed to init NvkvWrapper"); throw (e)
   }
 
   nvkvStorageSize = ds(0).size
@@ -83,12 +83,12 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
   var nvkvCtx: Array[Byte] = ByteBuffer.wrap(nvkv.export()).order(ByteOrder.LITTLE_ENDIAN).array()
   var nvkvCtxSize: Int = nvkvCtx.length
 
-  verbosedNvkvLogDebug(s"LEO NvkvWrapper: Register bb")
+  verbosedNvkvLogDebug(s"NvkvWrapper: Register bb")
   val mem: UcpMemory = ucxContext.registerMemory(nvkvRemoteReadBuffer)
   var mkeyBuffer: ByteBuffer = null
   mkeyBuffer = mem.getExportedMkeyBuffer()
   
-  verbosedNvkvLogDebug(s"LEO NvkvWrapper: Try to pack nvkv")
+  verbosedNvkvLogDebug(s"NvkvWrapper: Try to pack nvkv")
   packData = ByteBuffer.allocateDirect(UnsafeUtils.INT_SIZE  + // nvkvCtx size
                                        nvkvCtxSize           + // nvkvCtx
                                        UnsafeUtils.LONG_SIZE + // readBuf Address
@@ -105,9 +105,9 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
   packData.put(mkeyBuffer)
   packData.rewind()
 
-  verbosedNvkvLogDebug(s"LEO NvkvWrapper: packedNvkv nvkvCtx ${nvkvCtx} nvkvCtxSize ${nvkvCtxSize} bb ${UnsafeUtils.getAdress(nvkvRemoteReadBuffer)}")
-  verbosedNvkvLogDebug(s"LEO NvkvWrapper: packedNvkv packData capacity ${mkeyBuffer.capacity()} packData limit ${mkeyBuffer.limit()}")
-  logDebug(s"LEO NvkvWrapper: Finish init NVKV")
+  verbosedNvkvLogDebug(s"NvkvWrapper: packedNvkv nvkvCtx ${nvkvCtx} nvkvCtxSize ${nvkvCtxSize} bb ${UnsafeUtils.getAdress(nvkvRemoteReadBuffer)}")
+  verbosedNvkvLogDebug(s"NvkvWrapper: packedNvkv packData capacity ${mkeyBuffer.capacity()} packData limit ${mkeyBuffer.limit()}")
+  logDebug(s"NvkvWrapper: Finish init NVKV")
 
   // TODO - store bb in array not ListBuffer
   // To be used when fetching local blocks using DPU - no need to transfer data just bb idx
@@ -133,7 +133,7 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
     try {
       nvkv.connect(add)
     } catch {
-      case e: NvkvException => logDebug("LEO NvkvWrapper: Failed to connect to remote nvkv received from DPU"); throw(e)
+      case e: NvkvException => logDebug("NvkvWrapper: Failed to connect to remote nvkv received from DPU"); throw(e)
     }
   }
   
@@ -175,32 +175,32 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
   }
 
   private def post(request: WriteRequest) = {
-    verbosedNvkvLogDebug(s"LEO NvkvWrapper post write")
+    verbosedNvkvLogDebug(s"NvkvWrapper post write")
     checkRequest(request)
 
     try nvkv.postWrite(request.getDsIdx, nvkvWriteBuffer, 0, request.getLength, request.getOffset, new Nvkv.Context.Callback() {
       def done(): Unit = {
         request.setComplete()
-        verbosedNvkvLogDebug(s"LEO NvkvWrapper post completed!")
+        verbosedNvkvLogDebug(s"NvkvWrapper post completed!")
       }
     })
     catch {
-      case e: Exception => logError(s"LEO NvkvWrapper: Failed to post write request"); throw (e)
+      case e: Exception => logError(s"NvkvWrapper: Failed to post write request"); throw (e)
     }
   }
 
   private def post(request: ReadRequest) = {
-    verbosedNvkvLogDebug(s"LEO NvkvWrapper post read")
+    verbosedNvkvLogDebug(s"NvkvWrapper post read")
     checkRequest(request)
 
     try nvkv.postRead(ds_idx, request.getBuffer, 0, request.getLength, request.getOffset, new Nvkv.Context.Callback() {
       def done(): Unit = {
         request.setComplete()
-        verbosedNvkvLogDebug(s"LEO NvkvWrapper post completed!")
+        verbosedNvkvLogDebug(s"NvkvWrapper post completed!")
       }
     })
     catch {
-      case e: Exception => logError(s"LEO NvkvWrapper: Failed to post read request"); throw (e)
+      case e: Exception => logError(s"NvkvWrapper: Failed to post read request"); throw (e)
     }
   }
 
@@ -227,11 +227,11 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
 
   def read(length: Int, offset: Long): ByteBuffer = {
     val alignedLength = getAlignedLength(length)
-    verbosedNvkvLogDebug(s"LEO NvkvWrapper read aligned size " + alignedLength)
+    verbosedNvkvLogDebug(s"NvkvWrapper read aligned size " + alignedLength)
     val readRequest = new ReadRequest(nvkvReadBuffer, alignedLength, offset)
     post(readRequest)
     pollCompletion(readRequest)
-    verbosedNvkvLogDebug(s"LEO NvkvWrapper read complete")
+    verbosedNvkvLogDebug(s"NvkvWrapper read complete")
 
     var clone: ByteBuffer = ByteBuffer.allocateDirect(length)
     nvkvReadBuffer.limit(length)
@@ -253,16 +253,16 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
     while (remain > 0) {
         if (!nvkvWriteBuffer.hasRemaining()) {
             nvkvWriteBuffer.rewind()
-            verbosedNvkvLogDebug(s"LEO NvkvWrapper spill buffer relativeOffset $relativeOffset")
+            verbosedNvkvLogDebug(s"NvkvWrapper spill buffer relativeOffset $relativeOffset")
             val writeRequest = new WriteRequest(dsIdx, nvkvWriteBuffer, nvkvWriteBufferSize, relativeOffset)
             post(writeRequest)
             pollCompletion(writeRequest)
-            verbosedNvkvLogDebug(s"LEO NvkvWrapper write complete")
+            verbosedNvkvLogDebug(s"NvkvWrapper write complete")
             relativeOffset += nvkvWriteBufferSize
         } else {
             sourceLimit = (source.position()+nvkvWriteBuffer.remaining()).min(length)
-            verbosedNvkvLogDebug(s"LEO source_position ${source.position()} buffer_remaining ${nvkvWriteBuffer.remaining()} source_capacity ${length}")
-            verbosedNvkvLogDebug(s"LEO NvkvWrapper write to buffer from offset ${source.position()} length ${sourceLimit - source.position()}")
+            verbosedNvkvLogDebug(s"source_position ${source.position()} buffer_remaining ${nvkvWriteBuffer.remaining()} source_capacity ${length}")
+            verbosedNvkvLogDebug(s"NvkvWrapper write to buffer from offset ${source.position()} length ${sourceLimit - source.position()}")
             remain -= (sourceLimit - source.position());
             source.limit(sourceLimit)
             nvkvWriteBuffer.put(source)
@@ -274,22 +274,22 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
     val bufferPosition = nvkvWriteBuffer.position()
     var relativeOffset: Long = offset - bufferPosition
     nvkvWriteBuffer.rewind()
-    verbosedNvkvLogDebug(s"LEO NvkvWrapper write remaining size ${bufferPosition} relativeOffset ${relativeOffset}")
+    verbosedNvkvLogDebug(s"NvkvWrapper write remaining size ${bufferPosition} relativeOffset ${relativeOffset}")
     val writeRequest = new WriteRequest(dsIdx, nvkvWriteBuffer, getAlignedLength(bufferPosition), relativeOffset)
     post(writeRequest)
     pollCompletion(writeRequest)
-    verbosedNvkvLogDebug(s"LEO NvkvWrapper write complete")
+    verbosedNvkvLogDebug(s"NvkvWrapper write complete")
     (getAlignedLength(bufferPosition) - bufferPosition)
   }
 
   def commitPartition(dsIdx: Int, start: Long, length: Long, shuffleId: Int, 
                       mapId: Long, reducePartitionId: Int): Unit = {
-    verbosedNvkvLogDebug(s"LEO NvkvWrapper commitPartition $shuffleId,$mapId,$reducePartitionId offset $start length $length dsIdx $dsIdx")
+    verbosedNvkvLogDebug(s"NvkvWrapper commitPartition $shuffleId,$mapId,$reducePartitionId offset $start length $length dsIdx $dsIdx")
     reducePartitions(mapId.toInt)(reducePartitionId) = new ReducePartition(start+dsIdx*nvkvStorageSize, length)
   }
 
   def getPartitonOffset(shuffleId: Int, mapId: Long, reducePartitionId: Int): Long = {
-    verbosedNvkvLogDebug(s"LEO NvkvWrapper getPartitionOffset $shuffleId,$mapId,$reducePartitionId")
+    verbosedNvkvLogDebug(s"NvkvWrapper getPartitionOffset $shuffleId,$mapId,$reducePartitionId")
     if (reducePartitions(mapId.toInt)(reducePartitionId) == null) {
       0
     } else {
@@ -298,7 +298,7 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
   }
 
   def getPartitonLength(shuffleId: Int, mapId: Long, reducePartitionId: Int): Long = {
-    verbosedNvkvLogDebug(s"LEO NvkvWrapper getPartitionOffset $shuffleId,$mapId,$reducePartitionId")
+    verbosedNvkvLogDebug(s"NvkvWrapper getPartitionOffset $shuffleId,$mapId,$reducePartitionId")
     if (reducePartitions(mapId.toInt)(reducePartitionId) == null) {
       0
     } else {

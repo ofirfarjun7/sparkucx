@@ -20,28 +20,28 @@ class UcxExecutorRpcEndpoint(override val rpcEnv: RpcEnv, var transport: UcxShuf
   override def receive: PartialFunction[Any, Unit] = {
 
     case NvkvLock(nvkvLock: Int) => {
-      logInfo(s"LEO NvkvLock: Executer $executorId receive Nvkv Lock")
+      logInfo(s"NvkvLock: Executer $executorId receive Nvkv Lock")
       transport.initNvkv()
       nvkvInitCb(transport)
-      logInfo(s"LEO NvkvLock: Executer $executorId release Nvkv Lock")
+      logInfo(s"NvkvLock: Executer $executorId release Nvkv Lock")
       driverEndpoint.send(NvkvReleaseLock(executorId))
     }
 
     case ExecutorAdded(executorId: Long, _: RpcEndpointRef,
     dpuSockAddress: SerializableDirectBuffer) =>
-      logDebug(s"LEO executor received ExecutorAdded($executorId)")
-      logDebug(s"LEO dpuSockAddress: ${SerializationUtils.deserializeInetAddress(dpuSockAddress.value)}")
+      logDebug(s"Executor received ExecutorAdded($executorId)")
+      logDebug(s"dpuSockAddress: ${SerializationUtils.deserializeInetAddress(dpuSockAddress.value)}")
       executorService.submit(new Runnable() {
         override def run(): Unit = {
-          logDebug(s"LEO ExecutorRpc transport.addExecutor($executorId, ${SerializationUtils.deserializeInetAddress(dpuSockAddress.value)})")
+          logDebug(s"ExecutorRpc transport.addExecutor($executorId, ${SerializationUtils.deserializeInetAddress(dpuSockAddress.value)})")
           transport.addExecutor(executorId, dpuSockAddress.value)
         }
       })
     case IntroduceAllExecutors(executorIdToDpuAddresses: Map[Long, SerializableDirectBuffer]) =>
-      logDebug(s"LEO received IntroduceAllExecutors(${executorIdToDpuAddresses.keys.mkString(",")}")
+      logDebug(s"Received IntroduceAllExecutors(${executorIdToDpuAddresses.keys.mkString(",")}")
       executorService.submit(new Runnable() {
         override def run(): Unit = {
-          logDebug(s"LEO ExecutorRpc transport.addExecutors(executorIdToDpuAddresses)")
+          logDebug(s"ExecutorRpc transport.addExecutors(executorIdToDpuAddresses)")
           transport.addExecutors(executorIdToDpuAddresses)
           transport.preConnect()
         }

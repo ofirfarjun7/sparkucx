@@ -102,7 +102,7 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
 
   def connectToLocalDpu(): Unit = {
     val dpuAddress = DpuUtils.getLocalDpuAddress().getBytes(StandardCharsets.UTF_8)
-    logInfo(s"LEO Connecting to local DPU at $dpuAddress")
+    logInfo(s"Connecting to local DPU at $dpuAddress")
     val address = SerializationUtils.serializeInetAddress(new InetSocketAddress(DpuUtils.getLocalDpuAddress(), 1338))
 
     addExecutor(executorId, address)
@@ -114,7 +114,7 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
   def getNvkvWrapper: NvkvWrapper = nvkvWrapper
 
   override def init(): Unit = {
-    logInfo("LEO init UcxShuffleTransport")
+    logInfo("Init UcxShuffleTransport")
     if (ucxShuffleConf == null) {
       ucxShuffleConf = new UcxShuffleConf(SparkEnv.get.conf)
     }
@@ -127,7 +127,7 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
 
     val worker = ucxContext.newWorker(ucpWorkerParams)
     globalWorker = UcxWorkerWrapper(worker, this, 0)
-    logInfo("LEO init UcxShuffleTransport done")
+    logInfo("Init UcxShuffleTransport done")
   }
 
   def initNvkv(): Unit = {
@@ -135,7 +135,7 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
     connectToLocalDpu()
 
     initialized = true
-    logInfo("LEO init UcxShuffleTransport Nvkv init done")
+    logInfo("Init UcxShuffleTransport Nvkv init done")
   }
 
   /**
@@ -170,7 +170,7 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
    * connection establishment outside of UcxShuffleManager.
    */
   override def addExecutor(executorId: ExecutorId, dpuSockAddress: ByteBuffer): Unit = {
-    logInfo("LEO adding executor " + executorId)
+    logInfo("Adding executor " + executorId)
     executorAddresses.put(executorId, dpuSockAddress)
     globalWorker.getConnection(executorId)
     globalWorker.progressConnect()
@@ -180,7 +180,7 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
     executorIdsToAddress.foreach {
       case (executorId, address) => {
         executorAddresses.put(executorId, address.value)
-        logInfo("LEO adding executor " + executorId + " address " + address.value)
+        logInfo("Adding executor " + executorId + " address " + address.value)
       }
     }
   }
@@ -258,7 +258,7 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
 
   def commitBlock(executorId: ExecutorId, resultBufferAllocator: BufferAllocator, 
                   packMapperData: ByteBuffer, sendCompleteCB: () => Unit): Request = {
-    logDebug(s"LEO commitBlock threadId ${Thread.currentThread().getId}")
+    logDebug(s"commitBlock threadId ${Thread.currentThread().getId}")
     globalWorker
       .commitBlock(executorId, nvkvWrapper, resultBufferAllocator,
         packMapperData, sendCompleteCB)
