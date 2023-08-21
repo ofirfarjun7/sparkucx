@@ -13,6 +13,7 @@ import org.apache.spark.{SparkConf, SparkEnv}
 import org.apache.spark.shuffle.sort.io.{LocalDiskShuffleExecutorComponents, LocalDiskShuffleMapOutputWriter, LocalDiskSingleSpillMapOutputWriter}
 import org.apache.spark.shuffle.UcxShuffleManager
 import org.apache.spark.shuffle.api.{ShuffleMapOutputWriter, SingleSpillShuffleMapOutputWriter}
+import scala.concurrent.duration._
 
 /**
  * Entry point to UCX executor.
@@ -26,8 +27,9 @@ class UcxLocalDiskShuffleExecutorComponents(sparkConf: SparkConf)
     logDebug("LEO UcxLocalDiskShuffleExecutorComponents initializeExecutor appId: " + appId + " execId: " + execId)
     val ucxShuffleManager = SparkEnv.get.shuffleManager.asInstanceOf[UcxShuffleManager]
     CommonUtils.safePolling(() => {},
-      () => {ucxShuffleManager.ucxTransport == null}, 10*1000,
-      "Got timeout when polling", 5)
+      () => {ucxShuffleManager.ucxTransport == null},
+      10.seconds.fromNow,
+      "Got timeout when polling", Duration(5, "millis"))
 
     blockResolver = ucxShuffleManager.shuffleBlockResolver
   }

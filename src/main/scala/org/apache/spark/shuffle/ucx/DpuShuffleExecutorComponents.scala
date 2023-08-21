@@ -18,6 +18,7 @@ import org.apache.spark.shuffle.api.SingleSpillShuffleMapOutputWriter;
 import org.apache.spark.storage.BlockManager;
 import org.apache.spark.shuffle.utils.CommonUtils
 import org.apache.spark.shuffle.ucx;
+import scala.concurrent.duration._
 
 class NvkvShuffleExecutorComponents(val sparkConf: SparkConf, getTransport: () => UcxShuffleTransport)
               extends ShuffleExecutorComponents with Logging {
@@ -36,8 +37,8 @@ class NvkvShuffleExecutorComponents(val sparkConf: SparkConf, getTransport: () =
     //TODO - pass number of executors.
     blockResolver = new IndexShuffleBlockResolver(sparkConf, blockManager);
     CommonUtils.safePolling(() => {},
-      () => {getTransport() == null}, 10*1000,
-      "Got timeout when polling", 10)
+      () => {getTransport() == null}, 10.seconds.fromNow,
+      "Got timeout when polling", Duration(10, "millis"))
   }
 
   override def createMapOutputWriter(shuffleId: Int, mapTaskId: Long, numPartitions: Int) = {

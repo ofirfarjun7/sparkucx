@@ -19,6 +19,7 @@ import org.apache.spark.shuffle.ucx.utils.{SerializableDirectBuffer, Serializati
 import org.apache.spark.shuffle.utils.{UnsafeUtils, CommonUtils}
 import org.apache.spark.util.{RpcUtils, ThreadUtils}
 import org.apache.spark.{SecurityManager, SparkConf, SparkEnv}
+import scala.concurrent.duration._
 
 /**
  * Common part for all spark versions for UcxShuffleManager logic
@@ -47,8 +48,8 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
   setupThread.submit(new Runnable {
     override def run(): Unit = {
       CommonUtils.safePolling(() => {},
-      () => {SparkEnv.get == null}, 10*1000,
-      "Got timeout when polling", 10)
+      () => {SparkEnv.get == null}, 10.seconds.fromNow,
+      "Got timeout when polling", Duration(10, "millis"))
 
       if (isDriver) {
         val rpcEnv = SparkEnv.get.rpcEnv
@@ -57,8 +58,9 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
         rpcEnv.setupEndpoint(driverRpcName, driverEndpoint)
       } else {
         CommonUtils.safePolling(() => {},
-          () => {SparkEnv.get.blockManager.blockManagerId == null}, 10*1000,
-          "Got timeout when polling", 5)
+          () => {SparkEnv.get.blockManager.blockManagerId == null},
+          10.seconds.fromNow,
+          "Got timeout when polling", Duration(5, "millis"))
         startUcxTransport()
       }
     }

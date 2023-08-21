@@ -20,6 +20,7 @@ import org.apache.spark.shuffle.ucx.utils.{SerializationUtils, UcpSparkAmId}
 import org.apache.spark.shuffle.utils.{UnsafeUtils, CommonUtils}
 import org.apache.spark.unsafe.Platform
 import org.apache.spark.util.ThreadUtils
+import scala.concurrent.duration._
 
 import java.nio.{ByteBuffer, ByteOrder}
 import scala.collection.parallel.ForkJoinTaskSupport
@@ -204,10 +205,10 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
 
   def getConnection(executorId: transport.ExecutorId): UcpEndpoint = {
     // TODO: Skip connection if already connected to the DPU of this executor
-
+    val timeLimit = transport.ucxShuffleConf.getSparkConf.getTimeAsMs("spark.network.timeout", "100")
     CommonUtils.safePolling(() => {},
-      () => {!transport.executorAddresses.contains(executorId)}, 
-      transport.ucxShuffleConf.getSparkConf.getTimeAsMs("spark.network.timeout", "100"),
+      () => {!transport.executorAddresses.contains(executorId)},
+      timeLimit.millis.fromNow,
       s"RPC timeout - Waiting for DPU address for $executorId")
 
     connections.getOrElseUpdate(executorId,  {
@@ -306,8 +307,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
      }, MEMORY_TYPE.UCS_MEMORY_TYPE_HOST)
 
     CommonUtils.safePolling(() => {progress()},
-      () => {!connectToRemoteNvkv}, 
-      10*1000,
+      () => {!connectToRemoteNvkv}, 10.seconds.fromNow,
       s"Connect to remote $address failed")
     request
   }
@@ -396,7 +396,7 @@ case class UcxWorkerWrapper(worker: UcpWorker, transport: UcxShuffleTransport, i
         .setMemoryHandle(resultMemory.memory))
 
     CommonUtils.safePolling(() => {progress()},
-      () => {!req.isCompleted}, 10*1000,
+      () => {!req.isCompleted}, 10.seconds.fromNow,
       s"Failed when sending fetch block request")
   } catch {
     case ex: Throwable => logError(s"Failed to read and send data: $ex")

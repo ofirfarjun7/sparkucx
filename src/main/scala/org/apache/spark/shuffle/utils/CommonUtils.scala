@@ -13,13 +13,13 @@ object CommonUtils extends Logging {
     private class CommonUtilsTimeoutException(s:String) extends Exception(s){}
 
     /**
-      * Perform polling up to timeLimit[ms] with sleep[ms] in between
+      * Perform polling up to deadline with sleep in between
       *
       * @return
       */
-    def safePolling(pollFunc: () => Unit, pollCondition: () => Boolean = () => {false}, timeLimit: Long = 10000,
-      eMsg: String = "Got timeout when polling", sleep: Long = 0) {
-      val deadline = timeLimit.millis.fromNow
+    def safePolling(pollFunc: () => Unit, pollCondition: () => Boolean = () => {false},
+      deadline: Deadline = 10.seconds.fromNow,
+      eMsg: String = "Got timeout when polling", sleep: Duration = Duration(0, "millis")) {
 
       while (pollCondition()) {
         if (deadline.isOverdue()) {
@@ -29,8 +29,8 @@ object CommonUtils extends Logging {
         }
 
         pollFunc()
-        if (sleep > 0) {
-          Thread.sleep(sleep)
+        if (sleep.toMillis > 0) {
+          Thread.sleep(sleep.toMillis)
         }
       }
     }
