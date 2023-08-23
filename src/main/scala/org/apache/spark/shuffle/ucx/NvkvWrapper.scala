@@ -56,6 +56,9 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: I
   val nvkvLogEnabled = SparkEnv.get.conf.getInt("spark.nvkvLogs.enabled", 0)
   val blockManager = SparkEnv.get.blockManager.blockManagerId
   val executerId = blockManager.executorId.toInt
+  val executerNvkvDeviceIndex = executerLocalId % getNvkvTopology.length
+  val executerNvkvCoreMask = getCoreMask((executerLocalId / getNvkvTopology.length),
+                                          getNvkvTopology(executerNvkvDeviceIndex))
   /* 
    * SPDK proccess core_mask has to be unique.
    * This is a temporary solution.
@@ -70,9 +73,9 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: I
     }
   }
 
-  logDebug(s"NvkvWrapper constructor executerLocalId $executerLocalId cpu_mask $core_mask")
+  logDebug(s"NvkvWrapper constructor executerLocalId $executerLocalId cpu_mask $executerNvkvCoreMask")
   try {
-    Nvkv.init("mlx5_0", nvkvLogEnabled, core_mask)
+    Nvkv.init("mlx5_0", nvkvLogEnabled, executerNvkvCoreMask)
     logDebug(s"NvkvWrapper: Pass nvkv init")
     ds = Nvkv.query()
     if (ds.length == 0) {
