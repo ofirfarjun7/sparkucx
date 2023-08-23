@@ -22,7 +22,7 @@ object UcxRpcMessages {
   /**
    * Reply from driver when lock is given to pending executer.
    */
-  case class NvkvLock(lock: Int)
+  case class NvkvLock(executerLocalId: Int)
   
   /**
    * Called from executor to driver, to introduce dpu address.

@@ -6,6 +6,7 @@ package org.apache.spark.shuffle.ucx.rpc
 
 import java.net.InetSocketAddress
 
+import org.apache.spark.SparkException
 import scala.collection.immutable.HashMap
 import scala.collection.mutable
 import scala.collection.concurrent.TrieMap
@@ -21,6 +22,15 @@ class UcxDriverRpcEndpoint(override val rpcEnv: RpcEnv) extends ThreadSafeRpcEnd
   private var executorToDpuAddress = HashMap.empty[Long, SerializableDirectBuffer]
   private var nvkvLock = new TrieMap[InetSocketAddress, Int]
   private var nvkvLockPendingQMap = new TrieMap[InetSocketAddress, mutable.ListBuffer[RpcEndpointRef]]
+  private var executerLocalIdMap = new TrieMap[InetSocketAddress, Int]
+  
+  private def getExecuterLocalId(key: InetSocketAddress): Int = {
+    val executerLocalId = executerLocalIdMap.replace(key, executerLocalIdMap(key)+1)
+    executerLocalId match {
+      case Some(replacedValue) => replacedValue
+      case None => throw new SparkException("Executer not signed in executerLocalIdMap")
+    }
+  }
   
   override def receive: PartialFunction[Any, Unit] = {
     case message@NvkvReleaseLock(executorId: Long) => {
@@ -35,7 +45,7 @@ class UcxDriverRpcEndpoint(override val rpcEnv: RpcEnv) extends ThreadSafeRpcEnd
         } else {
           val pendingEp = nvkvLockPendingQ.remove(0)
           logInfo(s"NvkvLock: send lock to pending")
-          pendingEp.send(new NvkvLock(1))
+          pendingEp.send(new NvkvLock(getExecuterLocalId(desExecAdd)))
         }
       } else {
         throw new IllegalStateException(
@@ -51,7 +61,7 @@ class UcxDriverRpcEndpoint(override val rpcEnv: RpcEnv) extends ThreadSafeRpcEnd
         val desExecAdd = SerializationUtils.deserializeInetAddress(execAdd.value)
         var tryLock = nvkvLock.replace(desExecAdd, 0, 1)
         if (tryLock) {
-          execEp.send(new NvkvLock(1))
+          execEp.send(new NvkvLock(getExecuterLocalId(desExecAdd)))
           logInfo(s"NvkvLock: Lock given to $executorId")
         } else {
           logInfo(s"NvkvLock: Lock is not free, $executorId is pending...")
@@ -81,6 +91,7 @@ class UcxDriverRpcEndpoint(override val rpcEnv: RpcEnv) extends ThreadSafeRpcEnd
       executorToDpuAddress += executorId -> dpuSockAddress
 
       nvkvLock.getOrElseUpdate(SerializationUtils.deserializeInetAddress(dpuSockAddress.value), {0})
+      executerLocalIdMap.getOrElseUpdate(SerializationUtils.deserializeInetAddress(dpuSockAddress.value), {0})
       // 2. For each existing member introduce newly joined executor.
       endpoints.foreach(ep => {
         logDebug(s"Sending $message to $ep")

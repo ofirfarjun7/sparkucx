@@ -19,9 +19,9 @@ class UcxExecutorRpcEndpoint(override val rpcEnv: RpcEnv, var transport: UcxShuf
 
   override def receive: PartialFunction[Any, Unit] = {
 
-    case NvkvLock(nvkvLock: Int) => {
+    case NvkvLock(executerLocalId: Int) => {
       logInfo(s"NvkvLock: Executer $executorId receive Nvkv Lock")
-      transport.initNvkv()
+      transport.initNvkv(executerLocalId)
       nvkvInitCb(transport)
       logInfo(s"NvkvLock: Executer $executorId release Nvkv Lock")
       driverEndpoint.send(NvkvReleaseLock(executorId))

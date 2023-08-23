@@ -18,13 +18,13 @@ import org.apache.spark.SparkException
 object NvkvWrapper {
   private var nvkv: NvkvWrapper = null
 
-  def getNvkv(ucxContext: UcpContext, numOfPartitions: Int): NvkvWrapper = {
-    if (nvkv == null) nvkv = new NvkvWrapper(ucxContext, numOfPartitions)
+  def getNvkv(ucxContext: UcpContext, numOfPartitions: Int, executerLocalId: Int): NvkvWrapper = {
+    if (nvkv == null) nvkv = new NvkvWrapper(ucxContext, numOfPartitions, executerLocalId)
     nvkv
   }
 }
 
-class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: Long) extends Logging {
+class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: Int, executerLocalId: Int) extends Logging {
   class NvkvWrapperException(message: String, cause: Throwable)
     extends SparkException(message, cause) {
 
@@ -70,7 +70,7 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
     }
   }
 
-  logDebug(s"NvkvWrapper constructor cpu_mask $core_mask")
+  logDebug(s"NvkvWrapper constructor executerLocalId $executerLocalId cpu_mask $core_mask")
   try {
     Nvkv.init("mlx5_0", nvkvLogEnabled, core_mask)
     logDebug(s"NvkvWrapper: Pass nvkv init")
@@ -139,6 +139,14 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
     buffer.position(0)
     mpool
   }
+  
+  def getCoreMask(cpuIdx: Int, numaCpus: Long): String = {
+    val rightMost1 = numaCpus & -numaCpus;
+    (rightMost1 << cpuIdx).toHexString
+  }
+
+  //TODO: Create a function for detecting storage devices NUMA topology
+  private def getNvkvTopology: Array[Long] = Array(0x00000000FFFFFFFFL, 0xFFFFFFFF00000000L)
 
   def pack: ByteBuffer = packData
 

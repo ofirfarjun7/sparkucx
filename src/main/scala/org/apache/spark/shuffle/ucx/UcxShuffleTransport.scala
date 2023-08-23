@@ -130,8 +130,8 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
     logInfo("Init UcxShuffleTransport done")
   }
 
-  def initNvkv(): Unit = {
-    nvkvWrapper = NvkvWrapper.getNvkv(ucxContext, 1)
+  def initNvkv(executerLocalId: Int): Unit = {
+    nvkvWrapper = NvkvWrapper.getNvkv(ucxContext, 1, executerLocalId)
     connectToLocalDpu()
 
     initialized = true
