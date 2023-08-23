@@ -270,7 +270,7 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: I
     clone
   }
 
-  def write(dsIdx: Int, shuffleId: Int, mapId: Long, 
+  def write(shuffleId: Int, mapId: Long, 
             reducePartitionId: Int, bytes: Array[Byte], length: Int, offset: Long): Unit = {
     val source: ByteBuffer = ByteBuffer.wrap(bytes)
     var relativeOffset: Long = offset - nvkvWriteBuffer.position()
@@ -281,7 +281,7 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: I
         if (!nvkvWriteBuffer.hasRemaining()) {
             nvkvWriteBuffer.rewind()
             verbosedNvkvLogDebug(s"NvkvWrapper spill buffer relativeOffset $relativeOffset")
-            val writeRequest = new WriteRequest(dsIdx, nvkvWriteBuffer, nvkvWriteBufferSize, relativeOffset)
+            val writeRequest = new WriteRequest(executerNvkvDeviceIndex, nvkvWriteBuffer, nvkvWriteBufferSize, relativeOffset)
             post(writeRequest)
             pollCompletion(writeRequest)
             verbosedNvkvLogDebug(s"NvkvWrapper write complete")
@@ -297,22 +297,22 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: I
     }
   }
 
-  def writeRemaining(dsIdx: Int, offset: Long): Int = {
+  def writeRemaining(offset: Long): Int = {
     val bufferPosition = nvkvWriteBuffer.position()
     var relativeOffset: Long = offset - bufferPosition
     nvkvWriteBuffer.rewind()
     verbosedNvkvLogDebug(s"NvkvWrapper write remaining size ${bufferPosition} relativeOffset ${relativeOffset}")
-    val writeRequest = new WriteRequest(dsIdx, nvkvWriteBuffer, getAlignedLength(bufferPosition), relativeOffset)
+    val writeRequest = new WriteRequest(executerNvkvDeviceIndex, nvkvWriteBuffer, getAlignedLength(bufferPosition), relativeOffset)
     post(writeRequest)
     pollCompletion(writeRequest)
     verbosedNvkvLogDebug(s"NvkvWrapper write complete")
     (getAlignedLength(bufferPosition) - bufferPosition)
   }
 
-  def commitPartition(dsIdx: Int, start: Long, length: Long, shuffleId: Int, 
+  def commitPartition(start: Long, length: Long, shuffleId: Int, 
                       mapId: Long, reducePartitionId: Int): Unit = {
-    verbosedNvkvLogDebug(s"NvkvWrapper commitPartition $shuffleId,$mapId,$reducePartitionId offset $start length $length dsIdx $dsIdx")
-    reducePartitions(mapId.toInt)(reducePartitionId) = new ReducePartition(start+dsIdx*nvkvStorageSize, length)
+    verbosedNvkvLogDebug(s"NvkvWrapper commitPartition $shuffleId,$mapId,$reducePartitionId offset $start length $length executerNvkvDeviceIndex $executerNvkvDeviceIndex")
+    reducePartitions(mapId.toInt)(reducePartitionId) = new ReducePartition(start+executerNvkvDeviceIndex*nvkvStorageSize, length)
   }
 
   def getPartitonOffset(shuffleId: Int, mapId: Long, reducePartitionId: Int): Long = {

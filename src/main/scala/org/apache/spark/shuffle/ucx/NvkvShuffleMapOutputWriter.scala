@@ -80,7 +80,6 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
   final private var bufferSize = 4096
   private var lastPartitionId = -1
   private var currChannelPosition = 0L
-  private var dsIdx: Int = 0
   private var bytesWrittenToMergedFile = 0L
   private var outputBufferedFileStream: BufferedOutputStream = null
   private var nvkvWrapper: NvkvWrapper = ucxTransport.getNvkvWrapper
@@ -103,12 +102,6 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     if (reducePartitionId <= lastPartitionId) throw new IllegalArgumentException("Partitions should be requested in increasing order.")
     lastPartitionId = reducePartitionId
     currChannelPosition = getBlockOffset + bytesWrittenToMergedFile + totalPartitionsPadding
-    /* 
-     * Temporary solution for distributing the load between the NVME devices to get full read BW.
-     * This solution is not optimal because is nt taking into account NUMA topology and it's dependent in randmoness.
-     * See SparkDPU documentation for more information. 
-     */
-    dsIdx = Random.nextInt(nvkvWrapper.getNumOfDevices)
     logDebug(s"NvkvShuffleMapOutputWriter reducePartition offset $currChannelPosition")
     new NvkvShufflePartitionWriter(reducePartitionId)
   }
@@ -219,14 +212,14 @@ class NvkvShuffleMapOutputWriter(private val shuffleId: Int,
     override def write(buf: Array[Byte], pos: Int, length: Int): Unit = {
       val offset = currChannelPosition + count
       logDebug(s"PartitionWriterStream write2 $shuffleId,$mapId,$partitionId buf $buf pos $pos length $length offset $offset")
-      nvkvWrapper.write(dsIdx, shuffleId, mapId, partitionId, buf, length, offset)
+      nvkvWrapper.write(shuffleId, mapId, partitionId, buf, length, offset)
       verifyNotClosed()
       count += length
     }
 
     override def close(): Unit = {
-      var padding: Int = nvkvWrapper.writeRemaining(dsIdx, currChannelPosition+count)
-      nvkvWrapper.commitPartition(dsIdx, currChannelPosition, count, shuffleId, mapId, partitionId)
+      var padding: Int = nvkvWrapper.writeRemaining(currChannelPosition+count)
+      nvkvWrapper.commitPartition(currChannelPosition, count, shuffleId, mapId, partitionId)
       isClosed = true
       partitionLengths(partitionId) = count
       totalPartitionsPadding += padding
