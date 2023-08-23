@@ -13,6 +13,7 @@ import org.apache.spark.shuffle.utils.{UnsafeUtils, CommonUtils}
 import org.apache.spark.internal.Logging
 import java.nio.BufferOverflowException
 import org.openucx.jnvkv.NvkvException
+import org.apache.spark.SparkException
 
 object NvkvWrapper {
   private var nvkv: NvkvWrapper = null
@@ -24,6 +25,17 @@ object NvkvWrapper {
 }
 
 class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: Long) extends Logging {
+  class NvkvWrapperException(message: String, cause: Throwable)
+    extends SparkException(message, cause) {
+
+    def this(message: String) = this(message, null)
+  }
+  
+  class NvkvWrapperExceptionIllegalOffset(offset: Long)
+    extends NvkvWrapperException(s"Illegal offset $offset, must be aligned to $getAlignment")
+  class NvkvWrapperExceptionIllegalLength(length: Long)
+    extends NvkvWrapperException(s"Illegal length $length, must be aligned to $getAlignment")
+
   final private val nvkvWriteBufferSize  = 1024*1024*40L
   final private val nvkvReadBufferSize  = 1024*1024*40L
   final private val nvkvRemoteReadBufferSize = 1024*1024*43L
@@ -74,7 +86,8 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
     nvkvRemoteReadBuffer = nvkv.alloc(nvkvNumOfReadBuffers*nvkvRemoteReadBufferSize)
     logDebug(s"NvkvWrapper: Allocated BB read buffers")
   } catch {
-    case e: NvkvException => logError(s"NvkvWrapper: Failed to init NvkvWrapper"); throw (e)
+    case e: NvkvException => throw new NvkvWrapperException("Failed to init", e)
+    case e: Throwable => throw new NvkvWrapperException("Unexpected error occurred", e)
   }
 
   nvkvStorageSize = ds(0).size
@@ -133,7 +146,8 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
     try {
       nvkv.connect(add)
     } catch {
-      case e: NvkvException => logDebug("NvkvWrapper: Failed to connect to remote nvkv received from DPU"); throw(e)
+      case e: NvkvException => throw new NvkvWrapperException("Failed to connect to remote nvkv", e)
+      case e: Throwable => throw new NvkvWrapperException("Unexpected error occurred", e)
     }
   }
   
@@ -166,11 +180,11 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
 
   private def checkRequest(request: Request) {
     if (request.getOffset % getAlignment != 0) {
-      throw new IllegalArgumentException(s"Illegal offset ${request.getOffset}")
+      throw new NvkvWrapperExceptionIllegalOffset(request.getOffset)
     }
     
     if (request.getLength % getAlignment != 0) {
-      throw new IllegalArgumentException(s"Illegal length ${request.getLength}")
+      throw new NvkvWrapperExceptionIllegalLength(request.getLength)
     }
   }
 
@@ -185,7 +199,8 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
       }
     })
     catch {
-      case e: Exception => logError(s"NvkvWrapper: Failed to post write request"); throw (e)
+      case e: NvkvException => throw new NvkvWrapperException("Failed to post write request", e)
+      case e: Throwable => throw new NvkvWrapperException("Unexpected error occurred", e)
     }
   }
 
@@ -200,7 +215,8 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
       }
     })
     catch {
-      case e: Exception => logError(s"NvkvWrapper: Failed to post read request"); throw (e)
+      case e: NvkvException => throw new NvkvWrapperException("Failed to post read request", e)
+      case e: Throwable => throw new NvkvWrapperException("Unexpected error occurred", e)
     }
   }
 
@@ -217,7 +233,7 @@ class NvkvWrapper private(ucxContext: UcpContext, private var numOfPartitions: L
     val nvkvReadBufferTmp = nvkvReadBuffer.duplicate
     nvkvReadBufferTmp.limit(length)
     if (!(nvkvWriteBufferTmp == nvkvReadBufferTmp)) {
-      throw new RuntimeException("Data is corrupted")
+      throw new NvkvWrapperException("Data is corrupted")
     }
   }
 
