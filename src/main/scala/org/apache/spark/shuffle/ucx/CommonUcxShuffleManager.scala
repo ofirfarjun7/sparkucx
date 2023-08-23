@@ -86,8 +86,8 @@ abstract class CommonUcxShuffleManager(val conf: SparkConf, isDriver: Boolean) e
       executorEndpoint)
     logInfo(s"startUcxTransport sending RPC IntroduceAllExecutors")
 
-    var sockAddress = new InetSocketAddress(DpuUtils.getLocalDpuAddress(), 1338)
-    logInfo(s"sockAddress ${sockAddress} host ${sockAddress.getHostName} address ${sockAddress.getAddress}")
+    var sockAddress = DpuUtils.getLocalDpuSocketAddress()
+    logInfo(s"Local DPU Socket Address ${sockAddress}")
     driverEndpoint.ask[IntroduceAllExecutors](ExecutorAdded(blockManager.executorId.toLong, endpoint,
       new SerializableDirectBuffer(SerializationUtils.serializeInetAddress(sockAddress))))
       .andThen {

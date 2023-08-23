@@ -4,11 +4,12 @@
  */
 package org.apache.spark.shuffle.ucx.utils
 
-import org.apache.spark.internal.Logging
 
-import scala.collection.JavaConverters._
 import java.io.File;
+import java.net.InetSocketAddress
+import scala.collection.JavaConverters._
 import org.ini4j.Ini
+import org.apache.spark.internal.Logging
 
 object DpuUtils extends Logging {
     val ini: Ini =
@@ -27,9 +28,11 @@ object DpuUtils extends Logging {
       *
       * @return
       */
-    def getLocalDpuAddress(): String = {
+    def getLocalDpuSocketAddress(): InetSocketAddress = {
+      val port = 1338
       val hostname = java.net.InetAddress.getLocalHost.getHostName.split("\\.")(0)
-      dpusSection.get(hostname)
+      val ipAddress = dpusSection.get(hostname)
+      new InetSocketAddress(ipAddress, port)
     }
 
     /**

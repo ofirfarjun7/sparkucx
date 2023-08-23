@@ -101,9 +101,9 @@ class UcxShuffleTransport(var ucxShuffleConf: UcxShuffleConf = null, var executo
   }
 
   def connectToLocalDpu(): Unit = {
-    val dpuAddress = DpuUtils.getLocalDpuAddress().getBytes(StandardCharsets.UTF_8)
-    logInfo(s"Connecting to local DPU at $dpuAddress")
-    val address = SerializationUtils.serializeInetAddress(new InetSocketAddress(DpuUtils.getLocalDpuAddress(), 1338))
+    val dpuSockAddress = DpuUtils.getLocalDpuSocketAddress()
+    logInfo(s"Connecting to local DPU at $dpuSockAddress")
+    val address = SerializationUtils.serializeInetAddress(dpuSockAddress)
 
     addExecutor(executorId, address)
     globalWorker
